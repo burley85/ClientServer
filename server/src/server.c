@@ -1,51 +1,16 @@
 #include <stdio.h>
 #include <WinSock2.h>
 
-#include "server_output.h"
-
-//If DEBUG and WARNING, print DEBUG message to log, WARNING message to stderr
-//If !DEBUG and WARNING, print WARNING message to log
-//DEBUG and !WARNING is silly
-int debug = 0; //Default debug flag--can be set with --d flag
-int warnings = 1; //Default warnings flag--can be set with --w flag
-
-char* log_file = "log.txt"; //Default log file name--can be set with -l param; "" for output to stdout
+#include "Logger.h"
+#include "CommandLineArgs.h"
 
 int port_num = 8080; //Default port number--can be set with -p param
 char* ip_addr = "192.168.1.232"; //Default IP address with -i param
 
-int check_flag(int argc, char **argv, char* look_for){
-    for(int i = 0; i < argc; i++){
-        if(strcmp(argv[i], look_for) == 0){
-            return 1;
-        }
-    }
-    return 0;
-
-}
-
-char* check_param(int argc, char **argv, char* look_for){
-    for(int i = 0; i < argc; i++){
-        if(strcmp(argv[i], look_for) == 0){
-            if(i + 1 >= argc){
-                print_warning(stderr, "No parameter for '%s', returning \"\"\n", look_for);
-                return "";
-            }
-            return argv[i + 1];
-        }
-    }
-    return NULL;
-
-}
-
 void parse_argv(int argc, char **argv){
-    //Check for flags
-    debug = debug || check_flag(argc, argv, "--d") || check_flag(argc, argv, "--debug");
-    warnings = warnings || check_flag(argc, argv, "--w") || check_flag(argc, argv, "--warnings");
+    setup_logger(argc, argv);
 
-    //Check for params
     char* param;
-    if((param = check_param(argc, argv, "-l")) || (param = check_param(argc, argv, "-logfile"))) log_file = param;
     if((param = check_param(argc, argv, "-i")) || (param = check_param(argc, argv, "-ip"))) ip_addr = param;
     if((param = check_param(argc, argv, "-p")) || (param = check_param(argc, argv, "-port"))){
         port_num = atoi(param);
@@ -56,93 +21,34 @@ void parse_argv(int argc, char **argv){
     }
 }
 
-FILE* setup_debug_output(){
-    FILE* debug_file = NULL;
-
-    if(debug){
-        printf("Debugging enabled\n");
-        if(!strcmp(log_file, "stdout") || !strcmp(log_file, "")){
-            debug_file = stdout;
-        }
-        else if(!strcmp(log_file, "stderr")){
-            debug_file = stderr;
-        }
-        else{
-            debug_file = fopen(log_file, "w");
-            if(debug_file == NULL){
-                print_error("Failed to open log file '%s'", log_file);
-                exit(1);
-            }
-        }
-
-        setbuf(debug_file, NULL);
-    }
-
-    return debug_file;
-}
-
-FILE* setup_warning_output(){
-    FILE *warning_file = NULL;
-
-    if(warnings){
-        if(debug) warning_file = stderr;
-        else{
-            if(!strcmp(log_file, "stderr") || !strcmp(log_file, "")){
-                warning_file = stderr;
-            }
-            else if(!strcmp(log_file, "stdin")){
-                warning_file = stdin;
-            }
-            else{
-                printf("Opening\n");
-
-                warning_file = fopen(log_file, "w");
-                if(warning_file == NULL){
-                    print_error("Failed to open log file '%s'", log_file);
-                    exit(1);
-                }
-            }
-        }
-
-        setbuf(warning_file, NULL);
-    }
-
-    return warning_file;
-}
-
-int main(int argc, char **argv){
-    printf("Starting server...\n");
-    parse_argv(argc, argv);
-
-    FILE *debug_file = setup_debug_output();
-    FILE *warning_file = setup_warning_output();
-
-
-    print_debug(debug_file, "Starting server with address 'http://%s:%d'...", ip_addr, port_num);
-    print_warning(warning_file, "Starting server with address 'http://%s:%d'...", ip_addr, port_num);
-
-    //Initialize WinSock
+WSADATA init_winsock(){
     WSADATA wsaData;
 
     if(WSAStartup(MAKEWORD(2,2), &wsaData) != 0){
         print_error("WSAStartup() failed");
-        return 1;
+        exit(1);
     }
-    
-    print_debug(debug_file, "WSAStartup() success");
 
-    //Create socket
+    print_debug("WSAStartup() success");
+
+    return wsaData;
+}
+
+SOCKET init_server_socket(){
     SOCKET server_socket_desc = socket(AF_INET, SOCK_STREAM, 0);
     if(server_socket_desc == INVALID_SOCKET){
         print_error("socket() failed");
         if(WSACleanup()){
             print_error("WSACleanup() also failed");
         }
-        return 1;
+        exit(1);
     }
-    print_debug(debug_file, "Socket created");
+    print_debug("Socket created");
 
-    //Bind socket
+    return server_socket_desc;
+}
+
+void bind_socket(SOCKET server_socket_desc){
     SOCKADDR_IN server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port_num);
@@ -155,80 +61,130 @@ int main(int argc, char **argv){
         if(WSACleanup()){
             print_error("WSACleanup() also failed");
         }
-        return 1;
+        exit(1);
     }
-    print_debug(debug_file, "Socket bound");
+    print_debug("Socket bound");
+
+}
+
+void listen_on_socket(SOCKET server_socket_desc){
+    if(listen(server_socket_desc, 1) == SOCKET_ERROR){
+        print_error("listen() failed");
+        if(closesocket(server_socket_desc)){
+            print_error("closesocket() also failed.");
+        }
+        if(WSACleanup()){
+            print_error("WSACleanup() also failed");
+        }
+        exit(1);
+    }
+    print_debug("Listening for connection...");
+}
+
+SOCKET accept_connection(SOCKET server_socket_desc){
+    SOCKET client_socket_desc;
+    SOCKADDR_IN client_addr;
+    client_socket_desc = accept(server_socket_desc, NULL, NULL);
+    if(client_socket_desc == INVALID_SOCKET){
+        print_error("accept() error");
+        if(closesocket(server_socket_desc)){
+            print_error("closesocket() also failed");
+        }
+        if(WSACleanup()){
+            print_error("WSACleanup() also failed");
+        }
+        exit(1);  
+    }
+    print_debug("Connection accepted");
+    return client_socket_desc;
+}
+
+void send_page(SOCKET client_socket_desc, char* filepath){
+    //Open file
+    FILE* fp = fopen(filepath, "r");
+    if(fp == NULL){
+        print_error("Could not open file '%s'", filepath);
+        return;
+    }
+
+    //Get file size
+    fseek(fp, 0L, SEEK_END);
+    int file_size = ftell(fp) + 1;
+    fseek(fp, 0L, SEEK_SET);
     
+    //Send header
+    char* header_format = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: %d\r\n\r\n";
+    char header[128] = "";
+    sprintf(header, header_format, file_size);
+    print_debug("Sending header: %s", header);
+    send(client_socket_desc, header, strlen(header), 0);
+
+    //Send file
+    char buffer[256] = "";
+    while(fgets(buffer, sizeof(buffer), fp) != NULL){
+        int bytes_sent = 0;
+        print_debug("Sending '%s'...", buffer);
+        while(bytes_sent < strlen(buffer)){
+            bytes_sent += send(client_socket_desc, buffer + bytes_sent, strlen(buffer) - bytes_sent + 1, 0);
+        }
+        memset(buffer, 0, strlen(buffer));
+    }
+    fclose(fp);
+    print_debug("Sent file '%s'", filepath);
+    //send(client_socket_desc, " ", 20, 0);
+}
+
+int main(int argc, char **argv){
+    parse_argv(argc, argv);
+
+    print_debug("Starting server with address 'http://%s:%d'...", ip_addr, port_num);
+
+    //Initialize WinSock
+    WSADATA wsaData = init_winsock();
+
+    //Create socket
+    SOCKET server_socket_desc = init_server_socket();   
+
+    //Bind socket
+    bind_socket(server_socket_desc);
+
     SOCKET client_socket_desc;
     while(1){
-        print_debug(debug_file, "Listening for connection...");
-
         //Listen for incoming connections
-        if(listen(server_socket_desc, 1) == SOCKET_ERROR){
-            print_error("listen() failed");
-            if(closesocket(server_socket_desc)){
-                print_error("closesocket() also failed.");
-            }
-            if(WSACleanup()){
-                print_error("WSACleanup() also failed");
-            }
-            return 1;
-        }
-        print_debug(debug_file, "Connecting...");
+        listen_on_socket(server_socket_desc);
 
         //Accept socket
-        SOCKADDR_IN client_addr;
-        int szClntAddr = sizeof(client_addr);
-        client_socket_desc = accept(server_socket_desc, NULL, NULL);
-        if(client_socket_desc == INVALID_SOCKET){
-            print_error("accept() error");
-            if(closesocket(server_socket_desc)){
-                print_error("closesocket() also failed");
-            }
-            if(WSACleanup()){
-                print_error("WSACleanup() also failed");
-            }
-            return 1;    
-        }
-        print_debug(debug_file, "Connection accepted");
+        client_socket_desc = accept_connection(server_socket_desc);
         
         //Get client's response
         char client_response[1024] = "";
-        print_debug(debug_file, "Getting client response after connecting...");
+        print_debug("Getting client response after connecting...");
 
         int rval = recv(client_socket_desc, client_response, sizeof(client_response), 0);
         if(rval > 0){
-            print_debug(debug_file, "Client response after connecting: %s\n", client_response);
+            print_debug("Client response after connecting: %s\n", client_response);
         }
-        print_debug(debug_file, "rcv() returned %d", rval);
+        print_debug("rcv() returned %d", rval);
 
 
-        //Send web page with header to client 
-        const char *webpageContent = "<html><body><h1>Welcome to the Server!</h1></body></html>";
-        const char *responseHeader = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: 57\r\n\r\n";
-
-        print_debug(debug_file, "Sending header:\n%s\n", responseHeader);
-        int bytes_sent = send(client_socket_desc, responseHeader, strlen(responseHeader), 0);
-        print_debug(debug_file, "%d/%d bytes sent", bytes_sent, strlen(responseHeader));
+        //Send web page with header to client
+        send_page(client_socket_desc, "index.html");
 
         // //Get client's response
         // memset(client_response, 0, sizeof(client_response));
         // if(recv(client_socket_desc, client_response, sizeof(client_response), 0) > 0){
-        //     print_debug(debug_file, "Client response after sending header: %s\n", client_response);
+        //     print_debug("Client response after sending header: %s\n", client_response);
         // }
 
-        print_debug(debug_file, "Sending webpage:\n%s\n", webpageContent);
-        bytes_sent = send(client_socket_desc, webpageContent, strlen(webpageContent), 0);
-        print_debug(debug_file, "%d/%d bytes sent", bytes_sent, strlen(webpageContent));
 
         //Get client's response
         client_response[1024];
         memset(client_response, 0, sizeof(client_response));
-        print_debug(debug_file, "Getting client response after connecting...");
+        print_debug("Getting client response after connecting...");
         if(recv(client_socket_desc, client_response, sizeof(client_response), 0) > 0){
-            print_debug(debug_file, "Client response: %s\n", client_response);
+            print_debug("Client response: %s\n", client_response);
         }
-        print_debug(debug_file, "rcv() returned %d", rval);
+        print_debug("rcv() returned %d", rval);
 
     }
 
