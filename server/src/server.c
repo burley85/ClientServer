@@ -99,39 +99,115 @@ SOCKET accept_connection(SOCKET server_socket_desc){
     return client_socket_desc;
 }
 
-void send_page(SOCKET client_socket_desc, char* filepath){
+int send_page(SOCKET client_socket_desc, char* filepath, char* content_type){
     //Open file
     FILE* fp = fopen(filepath, "r");
     if(fp == NULL){
-        print_error("Could not open file '%s'", filepath);
-        return;
+        print_warning("Could not open file '%s'", filepath);
+        return 0;
     }
 
     //Get file size
     fseek(fp, 0L, SEEK_END);
-    int file_size = ftell(fp) + 1;
+    int file_size = ftell(fp);
     fseek(fp, 0L, SEEK_SET);
     
     //Send header
-    char* header_format = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: %d\r\n\r\n";
+    char* header_format = "HTTP/1.1 200 OK\r\nContent-Type: %s; charset=UTF-8\r\nContent-Length: %d\r\n\r\n";
     char header[128] = "";
-    sprintf(header, header_format, file_size);
+    sprintf(header, header_format, content_type, file_size);
     print_debug("Sending header: %s", header);
     send(client_socket_desc, header, strlen(header), 0);
 
     //Send file
     char buffer[256] = "";
-    while(fgets(buffer, sizeof(buffer), fp) != NULL){
-        int bytes_sent = 0;
-        print_debug("Sending '%s'...", buffer);
-        while(bytes_sent < strlen(buffer)){
-            bytes_sent += send(client_socket_desc, buffer + bytes_sent, strlen(buffer) - bytes_sent + 1, 0);
+    while(fgets(buffer, sizeof(buffer) - 2, fp) != NULL){
+        //Replace newline with \r\n
+        if(buffer[strlen(buffer) - 1] == '\n'){
+            buffer[strlen(buffer) - 1] = '\r';
+            buffer[strlen(buffer)] = '\n';
         }
-        memset(buffer, 0, strlen(buffer));
+
+        int buffer_len = strlen(buffer);
+        int bytes_sent = 0;
+        //print_debug("Sending '%s'...", buffer);
+
+        while(bytes_sent < buffer_len){
+            int rval = send(client_socket_desc, buffer + bytes_sent, buffer_len - bytes_sent, 0);
+            bytes_sent += rval;
+            if(rval == SOCKET_ERROR){
+                print_error("send() failed");
+                fclose(fp);
+                return 0;
+            }
+        }
+        memset(buffer, 0, 256);
     }
     fclose(fp);
+    send(client_socket_desc, buffer, 256, 0);
     print_debug("Sent file '%s'", filepath);
-    //send(client_socket_desc, " ", 20, 0);
+    return 1;
+}
+
+void send_404(SOCKET client_socket_desc){
+    const char* error_msg =  "HTTP/1.1 404 Not Found\r\n"
+                            "Content-Length: 0\r\n"
+                            "Connection: close\r\n"
+                            "\r\n";
+    if(send(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR){
+        print_error("Failed to send 404 Not Found");
+    }
+}
+
+void serve_client(SOCKET client_socket_desc){
+    while(1){
+        //Get client's response
+        char client_response[1024] = "";
+        print_debug("Getting client request...");
+
+        int rval = recv(client_socket_desc, client_response, sizeof(client_response), 0);
+        if(rval == SOCKET_ERROR){
+            print_error("recv() failed");
+            return;
+        }
+        else if(rval == 0){
+            print_debug("Client disconnected");
+            return;
+        }
+        
+        print_debug("Client request: %s", client_response);
+
+        //Check if client sent GET request
+        if(strncmp(client_response, "GET", 3) != 0){
+            print_debug("Client did not send GET request");
+            //Send 501 Not Implemented
+            if(send(client_socket_desc, "HTTP/1.1 501 Not Implemented\r\n\r\n", 31, 0) == SOCKET_ERROR){
+                print_error("Failed to send 501 Not Implemented");
+                return;
+            }
+        }
+        else{
+            char* file_name;
+            //Check if client sent GET request for root
+            if(strstr(client_response, "GET / HTTP/1.1") == client_response){
+                print_debug("Client sent GET request for root");
+                file_name = "index.html";
+            }
+            else{
+                file_name = malloc(256);
+                sscanf(client_response, "GET /%s HTTP/1.1", file_name);
+                print_debug("Client sent GET request for '%s'", file_name);
+            }
+
+            if(send_page(client_socket_desc, file_name, "text/html")){
+                print_debug("Sent page '%s'", file_name);
+            }
+            else{
+                print_debug("Could not send page '%s'", file_name);
+                send_404(client_socket_desc);
+           }
+        }
+    }
 }
 
 int main(int argc, char **argv){
@@ -155,37 +231,10 @@ int main(int argc, char **argv){
 
         //Accept socket
         client_socket_desc = accept_connection(server_socket_desc);
-        
-        //Get client's response
-        char client_response[1024] = "";
-        print_debug("Getting client response after connecting...");
 
-        int rval = recv(client_socket_desc, client_response, sizeof(client_response), 0);
-        if(rval > 0){
-            print_debug("Client response after connecting: %s\n", client_response);
-        }
-        print_debug("rcv() returned %d", rval);
+        serve_client(client_socket_desc);
 
-
-        //Send web page with header to client
-        send_page(client_socket_desc, "index.html");
-
-        // //Get client's response
-        // memset(client_response, 0, sizeof(client_response));
-        // if(recv(client_socket_desc, client_response, sizeof(client_response), 0) > 0){
-        //     print_debug("Client response after sending header: %s\n", client_response);
-        // }
-
-
-        //Get client's response
-        client_response[1024];
-        memset(client_response, 0, sizeof(client_response));
-        print_debug("Getting client response after connecting...");
-        if(recv(client_socket_desc, client_response, sizeof(client_response), 0) > 0){
-            print_debug("Client response: %s\n", client_response);
-        }
-        print_debug("rcv() returned %d", rval);
-
+        closesocket(client_socket_desc);
     }
 
     //Close socket
