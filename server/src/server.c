@@ -4,13 +4,13 @@
 #include "CommandLineArgs.h"
 #include "Logger.h"
 
-int port_num = 8080;             // Default port number--can be set with -p
-char *ip_addr = "192.168.1.232"; // Default IP address with -i param
+int port_num = 8080;              // Default port number--can be set with -p
+char* ip_addr = "192.168.1.232";  // Default IP address with -i param
 
-void parse_argv(int argc, char **argv) {
+void parse_argv(int argc, char** argv) {
     setup_logger(argc, argv);
 
-    char *param;
+    char* param;
     if ((param = check_param(argc, argv, "-i")) || (param = check_param(argc, argv, "-ip")))
         ip_addr = param;
     if ((param = check_param(argc, argv, "-p")) || (param = check_param(argc, argv, "-port"))) {
@@ -22,8 +22,7 @@ void parse_argv(int argc, char **argv) {
     }
 }
 
-WSADATA
-init_winsock() {
+WSADATA init_winsock() {
     WSADATA wsaData;
 
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -36,8 +35,7 @@ init_winsock() {
     return wsaData;
 }
 
-SOCKET
-init_server_socket() {
+SOCKET init_server_socket() {
     SOCKET server_socket_desc = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket_desc == INVALID_SOCKET) {
         print_error("socket() failed");
@@ -52,50 +50,48 @@ init_server_socket() {
 }
 
 void bind_socket(SOCKET server_socket_desc) {
-        SOCKADDR_IN server_addr;
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_port = htons(port_num);
-        server_addr.sin_addr.s_addr = inet_addr(ip_addr);
-        if (bind(server_socket_desc, (SOCKADDR *)&server_addr, sizeof(server_addr)) ==
-            SOCKET_ERROR) {
-                print_error("bind() failed");
-                if (closesocket(server_socket_desc)) {
+    SOCKADDR_IN server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port_num);
+    server_addr.sin_addr.s_addr = inet_addr(ip_addr);
+    if (bind(server_socket_desc, (SOCKADDR*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+        print_error("bind() failed");
+        if (closesocket(server_socket_desc)) {
             print_error("closesocket() also failed");
-                }
-                if (WSACleanup()) {
-            print_error("WSACleanup() also failed");
-                }
-                exit(1);
         }
-        print_debug("Socket bound");
+        if (WSACleanup()) {
+            print_error("WSACleanup() also failed");
+        }
+        exit(1);
+    }
+    print_debug("Socket bound");
 }
 
 void listen_on_socket(SOCKET server_socket_desc) {
-        if (listen(server_socket_desc, 1) == SOCKET_ERROR) {
-                print_error("listen() failed");
-                if (closesocket(server_socket_desc)) {
+    if (listen(server_socket_desc, 1) == SOCKET_ERROR) {
+        print_error("listen() failed");
+        if (closesocket(server_socket_desc)) {
             print_error("closesocket() also failed.");
-                }
-                if (WSACleanup()) {
-            print_error("WSACleanup() also failed");
-                }
-                exit(1);
         }
-        print_debug("Listening for connection...");
+        if (WSACleanup()) {
+            print_error("WSACleanup() also failed");
+        }
+        exit(1);
+    }
+    print_debug("Listening for connection...");
 }
 
-SOCKET
-accept_connection(SOCKET server_socket_desc) {
+SOCKET accept_connection(SOCKET server_socket_desc) {
     SOCKET client_socket_desc;
     SOCKADDR_IN client_addr;
     client_socket_desc = accept(server_socket_desc, NULL, NULL);
     if (client_socket_desc == INVALID_SOCKET) {
         print_error("accept() error");
         if (closesocket(server_socket_desc)) {
-                        print_error("closesocket() also failed");
+            print_error("closesocket() also failed");
         }
         if (WSACleanup()) {
-                        print_error("WSACleanup() also failed");
+            print_error("WSACleanup() also failed");
         }
         exit(1);
     }
@@ -103,9 +99,9 @@ accept_connection(SOCKET server_socket_desc) {
     return client_socket_desc;
 }
 
-int send_page(SOCKET client_socket_desc, char *filepath, char *content_type) {
+int send_page(SOCKET client_socket_desc, char* filepath, char* content_type) {
     // Open file
-    FILE *fp = fopen(filepath, "r");
+    FILE* fp = fopen(filepath, "r");
     if (fp == NULL) {
         print_warning("Could not open file '%s'", filepath);
         return 0;
@@ -117,10 +113,11 @@ int send_page(SOCKET client_socket_desc, char *filepath, char *content_type) {
     fseek(fp, 0L, SEEK_SET);
 
     // Send header
-    char *header_format = "HTTP/1.1 200 OK\r\n"
-                          "Content-Type: %s; charset=UTF-8\r\n"
-                          "Content-Length: %d\r\n"
-                          "\r\n";
+    char* header_format =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: %s; charset=UTF-8\r\n"
+        "Content-Length: %d\r\n"
+        "\r\n";
     char header[128] = "";
     sprintf(header, header_format, content_type, file_size);
     print_debug("Sending header: %s", header);
@@ -131,8 +128,8 @@ int send_page(SOCKET client_socket_desc, char *filepath, char *content_type) {
     while (fgets(buffer, sizeof(buffer) - 2, fp) != NULL) {
         // Replace newline with \r\n
         if (buffer[strlen(buffer) - 1] == '\n') {
-                        buffer[strlen(buffer) - 1] = '\r';
-                        buffer[strlen(buffer)] = '\n';
+            buffer[strlen(buffer) - 1] = '\r';
+            buffer[strlen(buffer)] = '\n';
         }
 
         int buffer_len = strlen(buffer);
@@ -140,14 +137,13 @@ int send_page(SOCKET client_socket_desc, char *filepath, char *content_type) {
         // print_debug("Sending '%s'...", buffer);
 
         while (bytes_sent < buffer_len) {
-                        int rval = send(client_socket_desc, buffer + bytes_sent,
-                                        buffer_len - bytes_sent, 0);
-                        bytes_sent += rval;
-                        if (rval == SOCKET_ERROR) {
-                            print_error("send() failed");
-                            fclose(fp);
-                            return 0;
-                        }
+            int rval = send(client_socket_desc, buffer + bytes_sent, buffer_len - bytes_sent, 0);
+            bytes_sent += rval;
+            if (rval == SOCKET_ERROR) {
+                print_error("send() failed");
+                fclose(fp);
+                return 0;
+            }
         }
         memset(buffer, 0, 256);
     }
@@ -158,10 +154,11 @@ int send_page(SOCKET client_socket_desc, char *filepath, char *content_type) {
 }
 
 void send_404(SOCKET client_socket_desc) {
-    const char *error_msg = "HTTP/1.1 404 Not Found\r\n"
-                            "Content-Length: 0\r\n"
-                            "Connection: close\r\n"
-                            "\r\n";
+    const char* error_msg =
+        "HTTP/1.1 404 Not Found\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n";
     if (send(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
         print_error("Failed to send 404 Not Found");
     }
@@ -175,41 +172,41 @@ void serve_client(SOCKET client_socket_desc) {
 
         int rval = recv(client_socket_desc, client_response, sizeof(client_response), 0);
         if (rval == SOCKET_ERROR) {
-                        print_error("recv() failed");
-                        return;
+            print_error("recv() failed");
+            return;
         }
         else if (rval == 0) {
-                        print_debug("Client disconnected");
-                        return;
+            print_debug("Client disconnected");
+            return;
         }
 
         print_debug("Client request: %s", client_response);
 
         // Check if client sent GET request
         if (strncmp(client_response, "GET", 3) != 0) {
-                        print_debug("Client did not send GET request");
-                        // Send 501 Not Implemented
-                        if (send(client_socket_desc, "HTTP/1.1 501 Not Implemented\r\n\r\n", 31,
-                                 0) == SOCKET_ERROR) {
-                            print_error("Failed to send 501 Not Implemented");
-                            return;
+            print_debug("Client did not send GET request");
+            // Send 501 Not Implemented
+            if (send(client_socket_desc, "HTTP/1.1 501 Not Implemented\r\n\r\n", 31, 0) ==
+                SOCKET_ERROR) {
+                print_error("Failed to send 501 Not Implemented");
+                return;
             }
         }
         else {
-            char *file_name;
+            char* file_name;
             // Check if client sent GET request for root
             if (strstr(client_response, "GET / HTTP/1.1") == client_response) {
-                            print_debug("Client sent GET request for root");
-                            file_name = "index.html";
+                print_debug("Client sent GET request for root");
+                file_name = "index.html";
             }
             else {
-                            file_name = malloc(256);
-                            sscanf(client_response, "GET /%s HTTP/1.1", file_name);
-                            print_debug("Client sent GET request for '%s'", file_name);
+                file_name = malloc(256);
+                sscanf(client_response, "GET /%s HTTP/1.1", file_name);
+                print_debug("Client sent GET request for '%s'", file_name);
             }
 
             if (send_page(client_socket_desc, file_name, "text/html")) {
-                    print_debug("Sent page '%s'", file_name);
+                print_debug("Sent page '%s'", file_name);
             }
             else {
                 print_debug("Could not send page '%s'", file_name);
@@ -219,7 +216,7 @@ void serve_client(SOCKET client_socket_desc) {
     }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     parse_argv(argc, argv);
 
     print_debug("Starting server with address 'http://%s:%d'...", ip_addr, port_num);
