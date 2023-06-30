@@ -164,6 +164,17 @@ void send_404(SOCKET client_socket_desc) {
     }
 }
 
+void send_501(SOCKET client_socket_desc) {
+    const char* error_msg =
+        "HTTP/1.1 501 Not Implemented\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+    if (send(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
+        print_error("Failed to send 501 Not Implemented");
+    }
+}
+
 void serve_client(SOCKET client_socket_desc) {
     while (1) {
         // Get client's response
@@ -185,12 +196,8 @@ void serve_client(SOCKET client_socket_desc) {
         // Check if client sent GET request
         if (strncmp(client_response, "GET", 3) != 0) {
             print_debug("Client did not send GET request");
-            // Send 501 Not Implemented
-            if (send(client_socket_desc, "HTTP/1.1 501 Not Implemented\r\n\r\n", 31, 0) ==
-                SOCKET_ERROR) {
-                print_error("Failed to send 501 Not Implemented");
-                return;
-            }
+            send_501(client_socket_desc);
+            return;
         }
         else {
             char* file_name;
@@ -211,6 +218,7 @@ void serve_client(SOCKET client_socket_desc) {
             else {
                 print_debug("Could not send page '%s'", file_name);
                 send_404(client_socket_desc);
+                return;
             }
         }
     }
