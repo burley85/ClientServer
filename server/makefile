@@ -4,10 +4,8 @@ CXX_FLAGS := -ggdb
 BIN     := bin
 SRC     := src
 INCLUDE := include
-
 LIBRARIES   := -lwsock32
 EXECUTABLE  := server
-
 
 all: $(BIN)/$(EXECUTABLE)
 
@@ -16,7 +14,7 @@ run: clean all
 	./$(BIN)/$(EXECUTABLE)
 
 $(BIN)/$(EXECUTABLE): $(SRC)/*.c
-	$(CXX) $(CXX_FLAGS) -I$(INCLUDE) $^ -o $@ $(LIBRARIES)
-
+	$(CXX) $(CXX_FLAGS) -I $(INCLUDE)  $^ $(LIBRARIES) -o $@
+	
 clean:
 	-rm $(BIN)/*
