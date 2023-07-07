@@ -1,52 +1,58 @@
-create database if not exists GroupMessaging;
+CREATE DATABASE IF NOT EXISTS GroupMessaging;
 
-use GroupMessaging;
+USE GroupMessaging;
 
-create table if not exists User (
-    id int auto_increment,
-    primary key(id),
-    username varchar(20) not null,
-    pass varchar(20) not null,
-    email varchar(20) not null,
-    fname varchar(20),
-    lname varchar(20)
+CREATE TABLE IF NOT EXISTS User (
+    id INT AUTO_INCREMENT,
+    PRIMARY KEY(id),
+    username VARCHAR(20) NOT NULL,
+    pass VARCHAR(20) NOT NULL,
+    email VARCHAR(20) NOT NULL,
+    fname VARCHAR(20),
+    lname VARCHAR(20)
 );
 
-create table if not exists Channel (
-    id int auto_increment,
-    primary key(id),
-    name varchar(20) not null
+CREATE TABLE IF NOT EXISTS Channel (
+    id INT AUTO_INCREMENT,
+    PRIMARY KEY(id),
+    channel_name VARCHAR(20) NOT NULL
 );
 
-create table if not exists Membership (
-    channelid int not null,
-    userid int not null,
-    role varchar(20) not null,
-    primary key(channelid, userid),
-    foreign key(channelid) references Channel(id),
-    foreign key(userid) references User(id)
+CREATE TABLE IF NOT EXISTS Membership (
+    channel_id INT NOT NULL,
+    user_id INT NOT NULL,
+    /* permflags interpreted as array of 8 bools in the following order:
+    delete channel, change priveleges, ban user, pin message, delete other's message,
+    edit/delete own message, invite users, send message */
+    perm_flags TINYINT NOT NULL,
+    PRIMARY KEY(channel_id, user_id),
+    FOREIGN KEY(channel_id) REFERENCES Channel(id),
+    FOREIGN KEY(user_id) REFERENCES User(id)
 );
 
-create table if not exists DirectMessage (
-    id int auto_increment,
-    primary key(id),
-    timestamp timestamp not null,
-    senderid int not null,
-    receiverid int not null,
-    message varchar(256) not null,
-    foreign key(senderid) references User(id),
-    foreign key(receiverid) references User(id)
+CREATE TABLE IF NOT EXISTS DirectMessage (
+    id INT AUTO_INCREMENT,
+    PRIMARY KEY(id),
+    message_time TIMESTAMP NOT NULL,
+    sender_id INT NOT NULL,
+    receiver_id INT NOT NULL,
+    message_text VARCHAR(256) NOT NULL,
+    FOREIGN KEY(sender_id) REFERENCES User(id),
+    FOREIGN KEY(receiver_id) REFERENCES User(id)
 );
 
-create table if not exists GroupMessage (
-    id int auto_increment,
-    primary key(id),
-    timestamp timestamp not null,
-    senderid int not null,
-    channelid int not null,
-    message varchar(256) not null,
-    foreign key(senderid) references User(id)
+CREATE TABLE IF NOT EXISTS GroupMessage (
+    id INT AUTO_INCREMENT,
+    PRIMARY KEY(id),
+    message_time TIMESTAMP NOT NULL,
+    sender_id INT NOT NULL,
+    channel_id INT NOT NULL,
+    message_text VARCHAR(256) NOT NULL,
+    FOREIGN KEY(sender_id) REFERENCES User(id)
+    FOREIGN KEY(channel_id) REFERENCES Channel(id)
 );
+
+INSERT INTO TABLE User (username, pass, email, fname, lname) VALUES ('admin', 'admin', 'burley.85@osu.edu', 'dylan', 'burley');
 
 /*
 drop table User, GroupMessage, DirectMessage, Membership, Channel;
