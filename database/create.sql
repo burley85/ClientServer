@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS User (
     id INT AUTO_INCREMENT,
     PRIMARY KEY(id),
     username VARCHAR(20) NOT NULL,
-    pass VARCHAR(20) NOT NULL,
+    hashed_password VARCHAR(64) NOT NULL,
     email VARCHAR(20) NOT NULL,
     fname VARCHAR(20),
     lname VARCHAR(20)
@@ -48,11 +48,12 @@ CREATE TABLE IF NOT EXISTS GroupMessage (
     sender_id INT NOT NULL,
     channel_id INT NOT NULL,
     message_text VARCHAR(256) NOT NULL,
-    FOREIGN KEY(sender_id) REFERENCES User(id)
+    FOREIGN KEY(sender_id) REFERENCES User(id),
     FOREIGN KEY(channel_id) REFERENCES Channel(id)
 );
 
-INSERT INTO TABLE User (username, pass, email, fname, lname) VALUES ('admin', 'admin', 'burley.85@osu.edu', 'dylan', 'burley');
+
+INSERT INTO User (username, hashed_password, email, fname, lname) VALUES ('admin', 'admin', 'burley.85@osu.edu', 'dylan', 'burley');
 
 /*
 drop table User, GroupMessage, DirectMessage, Membership, Channel;
