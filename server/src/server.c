@@ -4,8 +4,11 @@
 #include "CommandLineArgs.h"
 #include "Logger.h"
 
-int port_num = 8080;              // Default port number--can be set with -p
-char* ip_addr = "192.168.1.232";  // Default IP address with -i param
+int port_num = 8080;                    // Default port number--can be set with -p
+char* ip_addr = "192.168.1.232";        // Default IP address with -i param
+
+int API_port_num = 9001;                // Default port number--can be set with -ap
+char* API_ip_addr = "192.168.1.232";    // Default IP address with -ai param
 
 void parse_argv(int argc, char** argv) {
     setup_logger(argc, argv);
@@ -47,6 +50,37 @@ SOCKET init_server_socket() {
     print_debug("Socket created");
 
     return server_socket_desc;
+}
+
+SOCKET connect_to_API() {
+    SOCKET API_server_desc = socket(AF_INET, SOCK_STREAM, 0);
+    if (API_server_desc == INVALID_SOCKET) {
+        print_error("socket() failed");
+        if (WSACleanup()) {
+            print_error("WSACleanup() also failed");
+        }
+        exit(1);
+    }
+    print_debug("Socket created");
+
+
+    SOCKADDR_IN server_addr;
+  
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(API_port_num); 
+    server_addr.sin_addr.s_addr = inet_addr(API_ip_addr); //INADDR_ANY;//
+  
+    if(connect(API_server_desc, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR){
+        print_error("Failed to connect to API server");
+        if (WSACleanup()) {
+            print_error("WSACleanup() also failed");
+        }
+        exit(1);
+    }
+
+    print_debug("Connected to API server");
+
+    return API_server_desc;
 }
 
 void bind_socket(SOCKET server_socket_desc) {
@@ -175,7 +209,17 @@ void send_501(SOCKET client_socket_desc) {
     }
 }
 
-void serve_client(SOCKET client_socket_desc) {
+void send_post_to_api(SOCKET API_socket_desc, char* request) {
+    //Remove headers from request
+    char* request_body = strstr(request, "\r\n\r\n");
+
+    print_debug("Sending POST to API: %s", request_body);
+    if (send(API_socket_desc, request_body, strlen(request_body), 0) == SOCKET_ERROR) {
+        print_error("Failed to send POST to API server");
+    }
+}
+
+void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc) {
     while (1) {
         // Get client's response
         char client_response[1024] = "";
@@ -193,13 +237,7 @@ void serve_client(SOCKET client_socket_desc) {
 
         print_debug("Client request: %s", client_response);
 
-        // Check if client sent GET request
-        if (strncmp(client_response, "GET", 3) != 0) {
-            print_debug("Client did not send GET request");
-            send_501(client_socket_desc);
-            return;
-        }
-        else {
+        if (strncmp(client_response, "GET", 3) == 0) {
             char* file_name;
             // Check if client sent GET request for root
             if (strstr(client_response, "GET / HTTP/1.1") == client_response) {
@@ -221,6 +259,19 @@ void serve_client(SOCKET client_socket_desc) {
                 return;
             }
         }
+
+        //Check if client sent POST request
+        else if (strncmp(client_response, "POST", 4) == 0) {
+            print_debug("Client sent POST request");
+            send_post_to_api(API_socket_desc, client_response);
+        }
+
+        // Send 501 Not Implemented for anything else
+        else {
+            print_debug("Sending 501 Not Implemented");
+            send_501(client_socket_desc);
+            return;
+        }
     }
 }
 
@@ -234,6 +285,7 @@ int main(int argc, char** argv) {
 
     // Create socket
     SOCKET server_socket_desc = init_server_socket();
+    SOCKET API_server_desc = connect_to_API();
 
     // Bind socket
     bind_socket(server_socket_desc);
@@ -246,7 +298,7 @@ int main(int argc, char** argv) {
         // Accept socket
         client_socket_desc = accept_connection(server_socket_desc);
 
-        serve_client(client_socket_desc);
+        serve_client(client_socket_desc, API_server_desc);
 
         closesocket(client_socket_desc);
     }

@@ -58,3 +58,13 @@ class Database:
         """Add an object to the database."""
         command = f'INSERT INTO {obj.__class__.__name__} {str(obj.__dict__.keys()).removeprefix("dict_keys").replace("[", "").replace("]","")} VALUES {str(obj.__dict__.values()).removeprefix("dict_values").replace("[", "").replace("]","")}'
         self.execute(command)
+
+    def getUser(self, username, password):
+        """Get a user from the database. Return None if username and password do not match."""
+        command = f'SELECT * FROM User WHERE username="{username}" AND hashed_password="{sha256(password.encode("utf-8")).hexdigest()}"'
+        result = self.session.sql(command).execute().fetch_all()
+        if(len(result) == 0):
+            return None
+        if(len(result) > 1):
+            raise Exception("Multiple users with the same username and password.")
+        return User(result[0][1], result[0][2], result[0][3], result[0][4], result[0][5], result[0][0])
