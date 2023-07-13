@@ -68,7 +68,7 @@ SOCKET connect_to_API() {
   
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(API_port_num); 
-    server_addr.sin_addr.s_addr = inet_addr(API_ip_addr); //INADDR_ANY;//
+    server_addr.sin_addr.s_addr = inet_addr(API_ip_addr);
   
     if(connect(API_server_desc, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR){
         print_error("Failed to connect to API server");
