@@ -7,7 +7,7 @@
 int port_num = 8080;                    // Default port number--can be set with -p
 char* ip_addr = "192.168.1.232";        // Default IP address with -i param
 
-int API_port_num = 9001;                // Default port number--can be set with -ap
+int API_port_num = 8081;                // Default port number--can be set with -ap
 char* API_ip_addr = "192.168.1.232";    // Default IP address with -ai param
 
 void parse_argv(int argc, char** argv) {
@@ -16,10 +16,19 @@ void parse_argv(int argc, char** argv) {
     char* param;
     if ((param = check_param(argc, argv, "-i")) || (param = check_param(argc, argv, "-ip")))
         ip_addr = param;
+    if ((param = check_param(argc, argv, "-ai")) || (param = check_param(argc, argv, "-apiip")))
+        API_ip_addr = param;
     if ((param = check_param(argc, argv, "-p")) || (param = check_param(argc, argv, "-port"))) {
         port_num = atoi(param);
         if (port_num <= 0) {
             print_error("%d is not a valid port number", port_num);
+            exit(1);
+        }
+    }
+    if ((param = check_param(argc, argv, "-ap")) || (param = check_param(argc, argv, "-apiport"))) {
+        API_port_num = atoi(param);
+        if (API_port_num <= 0) {
+            print_error("%d is not a valid port number", API_port_num);
             exit(1);
         }
     }

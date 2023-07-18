@@ -1,11 +1,11 @@
 import socket
 from db_classes import User, Channel, Membership, Message, DirectMessage, GroupMessage, Database
+import sys
 
 """Middleman server for database API"""
+host = sys.argv[1]
+port = int(sys.argv[2])
 db = Database("localhost", 33060, "root", "mysql")
-
-host = "192.168.1.232"
-port = 9001
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.bind((host, port))
@@ -21,3 +21,5 @@ while True:
                 break
             print("Received data: " + data.decode('utf-8'))
             conn.sendall(data)
+    pause = input("Press enter to continue...")
+    
