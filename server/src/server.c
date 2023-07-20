@@ -62,6 +62,8 @@ SOCKET init_server_socket() {
 }
 
 SOCKET connect_to_API() {
+    print_debug("Connecting to API at %s:%d", API_ip_addr, API_port_num);
+
     SOCKET API_server_desc = socket(AF_INET, SOCK_STREAM, 0);
     if (API_server_desc == INVALID_SOCKET) {
         print_error("socket() failed");
@@ -220,7 +222,7 @@ void send_501(SOCKET client_socket_desc) {
 
 void send_post_to_api(SOCKET API_socket_desc, char* request) {
     //Remove headers from request
-    char* request_body = strstr(request, "\r\n\r\n");
+    char* request_body = strstr(request, "\r\n\r\n") + 4;
 
     print_debug("Sending POST to API: %s", request_body);
     if (send(API_socket_desc, request_body, strlen(request_body), 0) == SOCKET_ERROR) {

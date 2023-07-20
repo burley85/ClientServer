@@ -44,7 +44,11 @@ class Database:
         self.port = port
         self.user = user
         self.password = password
-        self.session = mysqlx.get_session(host=host, port=port, user=user, password=password)
+        try:
+            self.session = mysqlx.get_session(host=host, port=port, user=user, password=password)
+        except:
+            print("ERROR: Failed to connect to mysql server.")
+            exit()
 
     def execute(self, command):
         """Execute an SQL command and return the result."""

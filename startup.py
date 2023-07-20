@@ -30,8 +30,8 @@ os.system(cmd)
 #Start the web server
 cmd = f"start ./server/bin/server.exe -l {config['Server']['logfile']}"
 
-cmd += f"-ip {config['Server']['host']} -port {config['Server']['port']}"
-cmd += f"-apiip {config['API']['host']} -apiport {config['API']['port']}"
+cmd += f" -ip {config['Server']['host']} -port {config['Server']['port']} "
+cmd += f" -apiip {config['API']['host']} -apiport {config['API']['port']}"
 
 if(config['Server'].getboolean('warnings')):
     cmd += " --w"
@@ -41,3 +41,5 @@ if(config['Server'].getboolean('debug')):
 
 print(cmd)
 os.system(cmd)
+
+pause = input("Press enter to continue...")
