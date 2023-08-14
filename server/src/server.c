@@ -220,7 +220,8 @@ void send_501(SOCKET client_socket_desc) {
     }
 }
 
-void send_post_to_api(SOCKET API_socket_desc, char* request) {
+//Returns a pointer to a dynamically allocated database struct
+void* forward_request_to_api(SOCKET API_socket_desc, char* request) {
     //Remove headers from request
     char* request_body = strstr(request, "\r\n\r\n") + 4;
 
@@ -228,6 +229,15 @@ void send_post_to_api(SOCKET API_socket_desc, char* request) {
     if (send(API_socket_desc, request_body, strlen(request_body), 0) == SOCKET_ERROR) {
         print_error("Failed to send POST to API server");
     }
+
+    // Get API response
+    char API_response[1024] = "";
+    int rval = recv(API_socket_desc, API_response, sizeof(API_response), 0);
+    print_debug("Received API response: %s\n", API_response);
+
+    //TODO: Parse API response into database struct
+
+    return NULL;
 }
 
 void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc) {
@@ -274,7 +284,7 @@ void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc) {
         //Check if client sent POST request
         else if (strncmp(client_response, "POST", 4) == 0) {
             print_debug("Client sent POST request");
-            send_post_to_api(API_socket_desc, client_response);
+            forward_request_to_api(API_socket_desc, client_response);
         }
 
         // Send 501 Not Implemented for anything else
@@ -290,6 +300,7 @@ int main(int argc, char** argv) {
     parse_argv(argc, argv);
 
     print_debug("Starting server with address 'http://%s:%d'...", ip_addr, port_num);
+    printf("Starting server with address 'http://%s:%d'...", ip_addr, port_num);
 
     // Initialize WinSock
     WSADATA wsaData = init_winsock();

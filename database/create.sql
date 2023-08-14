@@ -2,20 +2,24 @@ CREATE DATABASE IF NOT EXISTS GroupMessaging;
 
 USE GroupMessaging;
 
+
+drop table User, GroupMessage, DirectMessage, Membership, Channel;
+
+
 CREATE TABLE IF NOT EXISTS User (
     id INT AUTO_INCREMENT,
     PRIMARY KEY(id),
-    username VARCHAR(20) NOT NULL,
-    hashed_password VARCHAR(64) NOT NULL,
-    email VARCHAR(20) NOT NULL,
-    fname VARCHAR(20),
-    lname VARCHAR(20)
+    username VARCHAR(31) NOT NULL,
+    pword VARCHAR(32) NOT NULL,
+    email VARCHAR(63) NOT NULL,
+    fname VARCHAR(31),
+    lname VARCHAR(31)
 );
 
 CREATE TABLE IF NOT EXISTS Channel (
     id INT AUTO_INCREMENT,
     PRIMARY KEY(id),
-    channel_name VARCHAR(20) NOT NULL
+    channel_name VARCHAR(31) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS Membership (
@@ -36,7 +40,7 @@ CREATE TABLE IF NOT EXISTS DirectMessage (
     message_time TIMESTAMP NOT NULL,
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,
-    message_text VARCHAR(256) NOT NULL,
+    message_text VARCHAR(255) NOT NULL,
     FOREIGN KEY(sender_id) REFERENCES User(id),
     FOREIGN KEY(receiver_id) REFERENCES User(id)
 );
@@ -47,13 +51,13 @@ CREATE TABLE IF NOT EXISTS GroupMessage (
     message_time TIMESTAMP NOT NULL,
     sender_id INT NOT NULL,
     channel_id INT NOT NULL,
-    message_text VARCHAR(256) NOT NULL,
+    message_text VARCHAR(255) NOT NULL,
     FOREIGN KEY(sender_id) REFERENCES User(id),
     FOREIGN KEY(channel_id) REFERENCES Channel(id)
 );
 
 
-INSERT INTO User (username, hashed_password, email, fname, lname) VALUES ('admin', 'admin', 'burley.85@osu.edu', 'dylan', 'burley');
+INSERT INTO User (username, pword, email, fname, lname) VALUES ('admin', 'admin', 'burley.85@osu.edu', 'dylan', 'burley');
 
 /*
 drop table User, GroupMessage, DirectMessage, Membership, Channel;

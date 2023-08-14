@@ -1,5 +1,6 @@
 import configparser
 import os
+import sys
 
 defaults = {
     'Server': {
@@ -22,6 +23,12 @@ config.read_dict(defaults)
 
 config.read('config.cfg')
 
+if("make" in sys.argv):
+    cmd = "cd server && make && cd .."
+    print(cmd)
+    os.system(cmd)
+
+
 #Start the API server
 cmd = f"start py database/db_server.py {config['API']['host']} {config['API']['port']}"
 print(cmd)
@@ -41,5 +48,3 @@ if(config['Server'].getboolean('debug')):
 
 print(cmd)
 os.system(cmd)
-
-pause = input("Press enter to continue...")
