@@ -58,10 +58,14 @@ class Database:
         
         self.execute("USE GroupMessaging;")
 
-    def execute(self, command):
+    def execute(self, command, *args):
         """Execute an SQL command and return the result."""
-        print(command)
-        self.session.sql(command).execute()
+        stmt = self.session.sql(command)
+        if(len(args) > 0): stmt = stmt.bind(args)
+
+        print(stmt.sql)
+        print(args)
+        return stmt.execute()
 
     def disconnect(self):
         """Disconnect from the database."""
@@ -75,13 +79,18 @@ class Database:
 
         keyStr = str(objDict.keys()).removeprefix("dict_keys").replace("[", "").replace("]","").replace("\'","")
         valStr = str(objDict.values()).removeprefix("dict_values").replace("[", "").replace("]","")
-        command = f'INSERT INTO {obj.__class__.__name__} {keyStr} VALUES {valStr}'
-        self.execute(command)
+        
+        command = f'INSERT INTO {obj.__class__.__name__} {keyStr} VALUES (?'
+        for i in range(len(objDict) - 1):
+            command += ",?"
+        command += ")"
+ 
+        self.execute(command, *objDict.values())
 
     def getUser(self, username, pword):
         """Get a user from the database. Return None if username and password do not match."""
-        command = f'SELECT * FROM User WHERE username="{username}" AND pword="{pword}"'
-        result = self.session.sql(command).execute().fetch_all()
+        command = 'SELECT * FROM User WHERE username = ? AND pword = ?'
+        result = self.execute(command, username, pword).fetch_all()
         if(len(result) == 0):
             return None
         if(len(result) > 1):
