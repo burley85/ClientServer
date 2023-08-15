@@ -5,7 +5,7 @@ class DatabaseObject:
     def __init__(self):
         pass
     def __str__(self):
-        return str(self.__dict__)
+        return f'{type(self).__name__} = {str(self.__dict__)}'
 
 class User(DatabaseObject):
     def __init__(self, username, pword, email=None, fname=None, lname=None, id=None):
@@ -78,7 +78,6 @@ class Database:
             if(value != None): objDict[key] = value
 
         keyStr = str(objDict.keys()).removeprefix("dict_keys").replace("[", "").replace("]","").replace("\'","")
-        valStr = str(objDict.values()).removeprefix("dict_values").replace("[", "").replace("]","")
         
         command = f'INSERT INTO {obj.__class__.__name__} {keyStr} VALUES (?'
         for i in range(len(objDict) - 1):
@@ -87,12 +86,12 @@ class Database:
  
         self.execute(command, *objDict.values())
 
-    def getUser(self, username, pword):
+    def getUser(self, username):
         """Get a user from the database. Return None if username and password do not match."""
-        command = 'SELECT * FROM User WHERE username = ? AND pword = ?'
-        result = self.execute(command, username, pword).fetch_all()
-        if(len(result) == 0):
-            return None
-        if(len(result) > 1):
-            raise Exception("Multiple users with the same username and pword.")
+        command = 'SELECT * FROM User WHERE username = ?'
+        result = self.execute(command, username).fetch_all()
+        
+        if(len(result) > 1): print("WARNING: Multiple users with the same username.")
+        if(len(result) != 1): return None
+        
         return User(result[0][1], result[0][2], result[0][3], result[0][4], result[0][5], result[0][0])

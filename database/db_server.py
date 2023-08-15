@@ -34,18 +34,27 @@ def handle_login_request(db : Database, request_dict : dict):
     """Handles login request from client"""
     username = request_dict["username"]
     pword = request_dict["pword"]
-    user = db.getUser(username, pword)
+
+    user = db.getUser(username)
+    if(user == None or user.pword != pword):
+        return None
     return user
 
 def handle_register_request(db : Database, request_dict: dict):
     """Handles register request from client"""
     username = request_dict["username"]
+    
+    #Check if username is already taken
+    if(db.getUser(username) != None):
+        return None
+    
     pword = request_dict["pword"]
     email = request_dict["email"].replace("%40", "@")
     fname = request_dict["fname"]
     lname = request_dict["lname"]
     user = User(username, pword, email, fname, lname)
     db.insert(user)
+    user = db.getUser(username)
     return user
 
 def send_response(conn, response_obj : DatabaseObject | None):

@@ -3,6 +3,7 @@
 
 #include "CommandLineArgs.h"
 #include "Logger.h"
+#include "db_structs.h"
 
 int port_num = 8080;                    // Default port number--can be set with -p
 char* ip_addr = "192.168.1.232";        // Default IP address with -i param
@@ -235,9 +236,8 @@ void* forward_request_to_api(SOCKET API_socket_desc, char* request) {
     int rval = recv(API_socket_desc, API_response, sizeof(API_response), 0);
     print_debug("Received API response: %s\n", API_response);
 
-    //TODO: Parse API response into database struct
-
-    return NULL;
+    // Parse API response into database struct
+    return strToDatabaseObject(API_response);
 }
 
 void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc) {
