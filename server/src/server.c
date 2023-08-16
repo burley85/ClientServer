@@ -145,7 +145,7 @@ SOCKET accept_connection(SOCKET server_socket_desc) {
     return client_socket_desc;
 }
 
-int send_page(SOCKET client_socket_desc, char* filepath, char* content_type) {
+int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, char* response_code) {
     // Open file
     FILE* fp = fopen(filepath, "r");
     if (fp == NULL) {
@@ -160,12 +160,12 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type) {
 
     // Send header
     char* header_format =
-        "HTTP/1.1 200 OK\r\n"
+        "HTTP/1.1 %s\r\n"
         "Content-Type: %s; charset=UTF-8\r\n"
         "Content-Length: %d\r\n"
         "\r\n";
     char header[128] = "";
-    sprintf(header, header_format, content_type, file_size);
+    sprintf(header, header_format, response_code, content_type, file_size);
     print_debug("Sending header: %s", header);
     send(client_socket_desc, header, strlen(header), 0);
 
@@ -221,23 +221,67 @@ void send_501(SOCKET client_socket_desc) {
     }
 }
 
+void handle_get(SOCKET client_socket_desc, char* request){
+    char* root = "login.html";
+
+    // Check if client sent GET request for root
+    if (strstr(request, "GET / HTTP/1.1") == request) {
+        print_debug("Client sent GET request for root");
+        send_page(client_socket_desc, root, "text/html", "200 OK");
+        return;
+    }
+    
+    char* file_name = malloc(256);
+    sscanf(request, "GET /%s HTTP/1.1", file_name);
+    print_debug("Client sent GET request for '%s'", file_name);
+
+    if (!send_page(client_socket_desc, file_name, "text/html", "200 OK")) {
+        print_debug("Could not send page '%s'", file_name);
+        send_404(client_socket_desc);
+    }
+}
+
+void handle_register_request(SOCKET client_socket_desc, void* dbObj){
+}
+
+void handle_login_request(SOCKET client_socket_desc, void* dbObj){
+    User* u = (User*) dbObj;
+
+    if(u != NULL){
+        send_page(client_socket_desc, "home.html", "text/html", "201 OK");
+    }
+    else {
+        send_page(client_socket_desc, "login.html", "text/html", "200 OK");
+    }
+}
+
 //Returns a pointer to a dynamically allocated database struct
-void* forward_request_to_api(SOCKET API_socket_desc, char* request) {
+void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request) {
     //Remove headers from request
     char* request_body = strstr(request, "\r\n\r\n") + 4;
 
     print_debug("Sending POST to API: %s", request_body);
     if (send(API_socket_desc, request_body, strlen(request_body), 0) == SOCKET_ERROR) {
         print_error("Failed to send POST to API server");
+        return;
     }
+
+    char* formType = strstr(request_body, "&type=") + 6;
 
     // Get API response
     char API_response[1024] = "";
-    int rval = recv(API_socket_desc, API_response, sizeof(API_response), 0);
+    if(recv(API_socket_desc, API_response, sizeof(API_response), 0) == SOCKET_ERROR){
+        print_error("Failed to receive API response");
+        return;
+    }
     print_debug("Received API response: %s\n", API_response);
 
     // Parse API response into database struct
-    return strToDatabaseObject(API_response);
+    void* dbObj = strToDatabaseObject(API_response);
+
+    if(!strncmp(formType, "register", 8)) handle_register_request(client_socket_desc, dbObj);
+    if(!strncmp(formType, "login", 5)) handle_login_request(client_socket_desc, dbObj);
+
 }
 
 void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc) {
@@ -258,41 +302,16 @@ void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc) {
 
         print_debug("Client request: %s", client_response);
 
-        if (strncmp(client_response, "GET", 3) == 0) {
-            char* file_name;
-            // Check if client sent GET request for root
-            if (strstr(client_response, "GET / HTTP/1.1") == client_response) {
-                print_debug("Client sent GET request for root");
-                file_name = "index.html";
-            }
-            else {
-                file_name = malloc(256);
-                sscanf(client_response, "GET /%s HTTP/1.1", file_name);
-                print_debug("Client sent GET request for '%s'", file_name);
-            }
-
-            if (send_page(client_socket_desc, file_name, "text/html")) {
-                print_debug("Sent page '%s'", file_name);
-            }
-            else {
-                print_debug("Could not send page '%s'", file_name);
-                send_404(client_socket_desc);
-                return;
-            }
-        }
-
+        if (strncmp(client_response, "GET", 3) == 0)
+            handle_get(client_socket_desc, client_response);
+        
         //Check if client sent POST request
-        else if (strncmp(client_response, "POST", 4) == 0) {
-            print_debug("Client sent POST request");
-            forward_request_to_api(API_socket_desc, client_response);
-        }
+        else if (strncmp(client_response, "POST", 4) == 0)
+            handle_post(client_socket_desc, API_socket_desc, client_response);
 
         // Send 501 Not Implemented for anything else
-        else {
-            print_debug("Sending 501 Not Implemented");
-            send_501(client_socket_desc);
-            return;
-        }
+        else send_501(client_socket_desc);
+        
     }
 }
 
