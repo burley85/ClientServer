@@ -248,10 +248,10 @@ void handle_login_request(SOCKET client_socket_desc, void* dbObj){
     User* u = (User*) dbObj;
 
     if(u != NULL){
-        send_page(client_socket_desc, "home.html", "text/html", "201 OK");
+        send_page(client_socket_desc, "home.html", "text/html", "200 Created");
     }
     else {
-        send_page(client_socket_desc, "login.html", "text/html", "200 OK");
+        send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized");
     }
 }
 
