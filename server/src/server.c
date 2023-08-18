@@ -207,7 +207,8 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, cha
     return 1;
 }
 
-void send_302(SOCKET client_socket_desc, char* redirect, User *user) {
+// Returns session token
+char* create_session(User *user){
     //Create string of random characters
     char token[17] = "";
     for(int i = 0; i < 16; i++){
@@ -223,20 +224,29 @@ void send_302(SOCKET client_socket_desc, char* redirect, User *user) {
             strcpy(SessionMap[i].token, token);
             SessionMap[i].user = malloc(sizeof(User));
             *(SessionMap[i].user) = *user;
-            print_debug("Added token %s and user %s to session map at index %d", SessionMap[i].token, i, userToStr(*(SessionMap[i].user)));
+            print_debug("Added token %s and user %s to session map at index %d", SessionMap[i].token, userToStr(*(SessionMap[i].user)), i);
             break;
         }
     }
     if(i == MAX_SESSIONS) print_error("Session map is full");
+    return SessionMap[i].token;
+}
 
+void send_302(SOCKET client_socket_desc, char* redirect, char *token) {
+    char *set_cookie_params = "Path=/; HttpOnly";
+    if(token == NULL){
+        token = "deleted";
+        set_cookie_params = "Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    }
     char* header_format =
         "HTTP/1.1 302 Found\r\n"
         "Location: %s\r\n"
-        "Set-Cookie: token=%s; Path=/; HttpOnly\r\n"
+        "Set-Cookie: token=%s; %s\r\n"
         "Content-Length: 0\r\n"
         "\r\n";
+
     char header[128] = "";
-    sprintf(header, header_format, redirect, token);
+    sprintf(header, header_format, redirect, token, set_cookie_params);
     print_debug("Sending header: %s", header);
     send(client_socket_desc, header, strlen(header), 0);
 }
@@ -305,7 +315,7 @@ void handle_api_request(SOCKET client_socket_desc, char* request){
                 return;
             }
         }
-        print_warning("Could not find user with token %s", session_token);
+        print_warning("Could not find user with token %16s", session_token);
     }
 
 }
@@ -347,7 +357,8 @@ void handle_login_request(SOCKET client_socket_desc, void* dbObj){
     User* u = (User*) dbObj;
 
     if(u != NULL){
-        send_302(client_socket_desc, "home.html", u);
+        char* token = create_session(u);
+        send_302(client_socket_desc, "home.html", token);
     }
     else {
         send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized");
@@ -355,10 +366,32 @@ void handle_login_request(SOCKET client_socket_desc, void* dbObj){
     }
 }
 
+void handle_logout_request(SOCKET client_socket_desc, char* request){
+    char* session_token = strstr(request, "token=") + 6;
+        for(int i = 0; i < MAX_SESSIONS; i++){
+            if(!strncmp(SessionMap[i].token, session_token, 16)){
+                print_debug("Found user with token %s", session_token);
+                free(SessionMap[i].user);
+                SessionMap[i].user = NULL;
+                memset(SessionMap[i].token, 0, 17);
+            }
+        }
+        print_warning("Could not find user with token %s", session_token);
+
+    send_302(client_socket_desc, "login.html", NULL);
+}
+
 //Returns a pointer to a dynamically allocated database struct
 void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request) {
     //Remove headers from request
     char* request_body = strstr(request, "\r\n\r\n") + 4;
+
+    char* formType = strstr(request_body, "type=") + 5;
+
+    if(!strncmp("logout", formType, 6)){
+        handle_logout_request(client_socket_desc, request);
+        return;
+    }
 
     print_debug("Sending POST to API: %s", request_body);
     if (send(API_socket_desc, request_body, strlen(request_body), 0) == SOCKET_ERROR) {
@@ -366,7 +399,6 @@ void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* reques
         return;
     }
 
-    char* formType = strstr(request_body, "&type=") + 6;
 
     // Get API response
     char API_response[1024] = "";
