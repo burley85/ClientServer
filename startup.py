@@ -48,3 +48,8 @@ if(config['Server'].getboolean('debug')):
 
 print(cmd)
 os.system(cmd)
+
+#Start the client browser
+cmd = f"start chrome http://{config['Server']['host']}:{config['Server']['port']}"
+print(cmd)
+os.system(cmd)

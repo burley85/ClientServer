@@ -251,17 +251,6 @@ void send_302(SOCKET client_socket_desc, char* redirect, char *token) {
     send(client_socket_desc, header, strlen(header), 0);
 }
 
-void send_401(SOCKET client_socket_desc) {
-    const char* error_msg =
-        "HTTP/1.1 401 Unauthorized\r\n"
-        "Content-Length: 0\r\n"
-        "WWW-Authenticate: Basic realm=\"Secure Area\"\r\n"
-        "\r\n";
-    if (send(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
-        print_error("Failed to send 401 Unauthorized");
-    }
-}
-
 void send_404(SOCKET client_socket_desc) {
     const char* error_msg =
         "HTTP/1.1 404 Not Found\r\n"
@@ -347,8 +336,14 @@ void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request
     }
 }
 
-//Send 201 Created if user was created successfully
+//If user was created successfully send 201 Created
 void handle_register_request(SOCKET client_socket_desc, void* dbObj){
+    User* u = (User*) dbObj;
+
+    if(u != NULL) send_page(client_socket_desc, "login.html", "text/html", "201 Created");
+    
+    else send_page(client_socket_desc, "register.html", "text/html", "409 Conflict");
+    
 }
 
 //Send 302 Found if user was logged in successfully
@@ -362,7 +357,6 @@ void handle_login_request(SOCKET client_socket_desc, void* dbObj){
     }
     else {
         send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized");
-        //send_401(client_socket_desc);
     }
 }
 
