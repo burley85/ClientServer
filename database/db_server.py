@@ -46,6 +46,7 @@ def handle_register_request(db : Database, request_dict: dict):
     
     #Check if username is already taken
     if(db.getUser(username) != None):
+        print("Warning: Username already taken", file = fp)
         return None
     
     pword = request_dict["pword"]

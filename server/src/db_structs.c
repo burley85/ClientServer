@@ -49,6 +49,7 @@ int searchJsonForInt(char* json, char* key){
 }
 
 //Converts a string to a dynamically allocated database object
+//Returns NULL if the string is "None"
 void* strToDatabaseObject(char* str){
     if(strncmp(str, "None", 4) == 0) return NULL;
 
@@ -76,7 +77,7 @@ User strToUser(char *str){
 
 char* userToStr(User user){
     char* str = malloc(512);
-    sprintf(str, "{'username': '%s', 'pword': '%s', 'email': '%s', 'fname': '%s', 'lname': '%s', 'id': '%d'}", user.username, user.pword, user.email, user.fname, user.lname, user.id);
+    sprintf(str, "{\"username\": \"%s\", \"pword\": \"%s\", \"email\": \"%s\", \"fname\": \"%s\", \"lname\": \"%s\", \"id\": \"%d\"}", user.username, user.pword, user.email, user.fname, user.lname, user.id);
     return str;
 }
 

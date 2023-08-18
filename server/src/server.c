@@ -11,6 +11,14 @@ char* ip_addr = "192.168.1.232";        // Default IP address with -i param
 int API_port_num = 8081;                // Default port number--can be set with -ap
 char* API_ip_addr = "192.168.1.232";    // Default IP address with -ai param
 
+//Map of session tokens to users
+#define MAX_SESSIONS 16
+struct {
+    char token[17];
+    User* user;
+} SessionMap[MAX_SESSIONS];
+
+
 void parse_argv(int argc, char** argv) {
     setup_logger(argc, argv);
 
@@ -199,6 +207,51 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, cha
     return 1;
 }
 
+void send_302(SOCKET client_socket_desc, char* redirect, User *user) {
+    //Create string of random characters
+    char token[17] = "";
+    for(int i = 0; i < 16; i++){
+        char charSet[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        token[i] = charSet[rand() % (sizeof(charSet) - 1)];
+    }
+    token[16] = '\0';
+
+    //Add token and user to session map
+    int i;
+    for(i = 0; i < MAX_SESSIONS; i++){
+        if(SessionMap[i].user == NULL){
+            strcpy(SessionMap[i].token, token);
+            SessionMap[i].user = malloc(sizeof(User));
+            *(SessionMap[i].user) = *user;
+            print_debug("Added token %s and user %s to session map at index %d", SessionMap[i].token, i, userToStr(*(SessionMap[i].user)));
+            break;
+        }
+    }
+    if(i == MAX_SESSIONS) print_error("Session map is full");
+
+    char* header_format =
+        "HTTP/1.1 302 Found\r\n"
+        "Location: %s\r\n"
+        "Set-Cookie: token=%s; Path=/; HttpOnly\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n";
+    char header[128] = "";
+    sprintf(header, header_format, redirect, token);
+    print_debug("Sending header: %s", header);
+    send(client_socket_desc, header, strlen(header), 0);
+}
+
+void send_401(SOCKET client_socket_desc) {
+    const char* error_msg =
+        "HTTP/1.1 401 Unauthorized\r\n"
+        "Content-Length: 0\r\n"
+        "WWW-Authenticate: Basic realm=\"Secure Area\"\r\n"
+        "\r\n";
+    if (send(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
+        print_error("Failed to send 401 Unauthorized");
+    }
+}
+
 void send_404(SOCKET client_socket_desc) {
     const char* error_msg =
         "HTTP/1.1 404 Not Found\r\n"
@@ -221,7 +274,43 @@ void send_501(SOCKET client_socket_desc) {
     }
 }
 
-void handle_get(SOCKET client_socket_desc, char* request){
+void send_obj_json(SOCKET client_desc, char* obj_json) {
+    char* header_format =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: application/json; charset=UTF-8\r\n"
+        "Content-Length: %d\r\n"
+        "\r\n";
+    char header[128] = "";
+    sprintf(header, header_format, strlen(obj_json));
+    
+    print_debug("Sending header: %s", header);
+    send(client_desc, header, strlen(header), 0);
+
+    send(client_desc, obj_json, strlen(obj_json), 0);
+}
+
+void handle_api_request(SOCKET client_socket_desc, char* request){
+    char* request_obj = strstr(request, "GET /api/") + 9;
+    char* session_token = strstr(request, "token=") + 6;
+
+    if(strstr(request_obj, "user HTTP/1.1") == request_obj){
+        print_debug("Client sent GET request for user with token %s", session_token);
+        for(int i = 0; i < MAX_SESSIONS; i++){
+            printf("Comparing %s to %s\n", SessionMap[i].token, session_token);
+            if(!strncmp(SessionMap[i].token, session_token, 16)){
+                print_debug("Found user with token %s", session_token);
+                char* userStr = userToStr(*(SessionMap[i].user));
+                send_obj_json(client_socket_desc, userStr);
+                free(userStr);
+                return;
+            }
+        }
+        print_warning("Could not find user with token %s", session_token);
+    }
+
+}
+
+void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request){
     char* root = "login.html";
 
     // Check if client sent GET request for root
@@ -231,6 +320,13 @@ void handle_get(SOCKET client_socket_desc, char* request){
         return;
     }
     
+    // Check if client set API request
+    if (strstr(request, "GET /api") == request) {
+        print_debug("Client sent API request");
+        handle_api_request(client_socket_desc, request);
+        return;
+    }
+
     char* file_name = malloc(256);
     sscanf(request, "GET /%s HTTP/1.1", file_name);
     print_debug("Client sent GET request for '%s'", file_name);
@@ -241,17 +337,21 @@ void handle_get(SOCKET client_socket_desc, char* request){
     }
 }
 
+//Send 201 Created if user was created successfully
 void handle_register_request(SOCKET client_socket_desc, void* dbObj){
 }
 
+//Send 302 Found if user was logged in successfully
+//Send 401 Unauthorized if login failed
 void handle_login_request(SOCKET client_socket_desc, void* dbObj){
     User* u = (User*) dbObj;
 
     if(u != NULL){
-        send_page(client_socket_desc, "home.html", "text/html", "200 Created");
+        send_302(client_socket_desc, "home.html", u);
     }
     else {
         send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized");
+        //send_401(client_socket_desc);
     }
 }
 
@@ -303,7 +403,7 @@ void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc) {
         print_debug("Client request: %s", client_response);
 
         if (strncmp(client_response, "GET", 3) == 0)
-            handle_get(client_socket_desc, client_response);
+            handle_get(client_socket_desc, API_socket_desc, client_response);
         
         //Check if client sent POST request
         else if (strncmp(client_response, "POST", 4) == 0)

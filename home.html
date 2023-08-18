@@ -1,0 +1,25 @@
+<html>
+    <script>
+        async function getUser(){
+            try{
+            //Get User Object from server
+                let userRequest = new Request("api/user", {
+                    method: "GET",
+                    //credentials: "same-origin" // Include cookies in the request
+                });
+                response = await fetch(userRequest);
+                if (response.status === 200) {
+                    const user = await response.json();
+                    document.getElementById("Heading").innerHTML = "Hello, " + user.fname;
+                } else {
+                    throw new Error("Error in response");
+                }
+            } catch (error) {
+                console.error("An error occurred:", error); // Handle errors
+            }
+        }
+    </script>
+    <body onload = "getUser()">
+        <h1 id = "Heading"></h1>
+    </body>
+</html>
