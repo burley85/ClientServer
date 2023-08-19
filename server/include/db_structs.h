@@ -1,3 +1,6 @@
+#ifndef DB_STRUCTS_H
+#define DB_STRUCTS_H
+
 typedef struct {
     int id;
     char username[32];
@@ -44,3 +47,5 @@ static User strToUser(char *str);
 static Channel strToChannel(char *str);
 static Membership strToMembership(char *str);
 static Message strToMessage(char *str);
+
+#endif

@@ -1,5 +1,5 @@
-#ifndef SERVER_OUTPUT_H_
-#define SERVER_OUTPUT_H_
+#ifndef LOGGER_H
+#define LOGGER_H
 
 #include <stdio.h>
 
@@ -15,7 +15,5 @@ void print_debug(char* formatted_message, ...);
 void print_warning(char* formatted_message, ...);
 
 void print_error(char* formatted_message, ...);
-
-
 
 #endif
