@@ -188,7 +188,11 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, cha
     char header[128] = "";
     sprintf(header, header_format, response_code, content_type, file_size);
     print_debug("Sending header: %s", header);
-    send_all(client_socket_desc, header, strlen(header), 0);
+    if(!send_all(client_socket_desc, header, strlen(header), 0)){
+        print_error("Failed to send header for file '%s'", filepath);
+        fclose(fp);
+        return 0;
+    }
 
     // Send file
     char buffer[256] = "";
@@ -253,7 +257,9 @@ void send_302(SOCKET client_socket_desc, char* redirect, char *token) {
     char header[128] = "";
     sprintf(header, header_format, redirect, token, set_cookie_params);
     print_debug("Sending header: %s", header);
-    send_all(client_socket_desc, header, strlen(header), 0);
+    if(!send_all(client_socket_desc, header, strlen(header), 0)){
+        print_error("Failed to send 302 Found");
+    }
 }
 
 void send_404(SOCKET client_socket_desc) {
@@ -262,7 +268,7 @@ void send_404(SOCKET client_socket_desc) {
         "Content-Length: 0\r\n"
         "Connection: close\r\n"
         "\r\n";
-    if (send_all(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
+    if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
         print_error("Failed to send 404 Not Found");
     }
 }
@@ -273,7 +279,7 @@ void send_501(SOCKET client_socket_desc) {
         "Content-Length: 0\r\n"
         "Connection: close\r\n"
         "\r\n";
-    if (send_all(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
+    if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
         print_error("Failed to send 501 Not Implemented");
     }
 }
@@ -288,9 +294,15 @@ void send_obj_json(SOCKET client_desc, char* obj_json) {
     sprintf(header, header_format, strlen(obj_json));
     
     print_debug("Sending header: %s", header);
-    send_all(client_desc, header, strlen(header), 0);
+    if(!send_all(client_desc, header, strlen(header), 0)){
+        print_error("Failed to send header for object '%s'", obj_json);
+        return;
+    }
 
-    send_all(client_desc, obj_json, strlen(obj_json), 0);
+    if(!send_all(client_desc, obj_json, strlen(obj_json), 0)){
+        print_error("Failed to send object '%s'", obj_json);
+        return;
+    }
 }
 
 void handle_api_request(SOCKET client_socket_desc, char* request){
