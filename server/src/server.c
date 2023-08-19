@@ -153,6 +153,19 @@ SOCKET accept_connection(SOCKET server_socket_desc) {
     return client_socket_desc;
 }
 
+int send_all(SOCKET client_socket_desc, const char* buffer, int buffer_len, int flags) {
+    int bytes_sent = 0;
+    while (bytes_sent < buffer_len) {
+        int rval = send(client_socket_desc, buffer + bytes_sent, buffer_len - bytes_sent, flags);
+        bytes_sent += rval;
+        if (rval == SOCKET_ERROR) {
+            print_error("send() failed");
+            return 0;
+        }
+    }
+    return 1;
+}
+
 int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, char* response_code) {
     // Open file
     FILE* fp = fopen(filepath, "r");
@@ -175,7 +188,7 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, cha
     char header[128] = "";
     sprintf(header, header_format, response_code, content_type, file_size);
     print_debug("Sending header: %s", header);
-    send(client_socket_desc, header, strlen(header), 0);
+    send_all(client_socket_desc, header, strlen(header), 0);
 
     // Send file
     char buffer[256] = "";
@@ -186,23 +199,15 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, cha
             buffer[strlen(buffer)] = '\n';
         }
 
-        int buffer_len = strlen(buffer);
-        int bytes_sent = 0;
-        // print_debug("Sending '%s'...", buffer);
-
-        while (bytes_sent < buffer_len) {
-            int rval = send(client_socket_desc, buffer + bytes_sent, buffer_len - bytes_sent, 0);
-            bytes_sent += rval;
-            if (rval == SOCKET_ERROR) {
-                print_error("send() failed");
-                fclose(fp);
-                return 0;
-            }
+        if(!send_all(client_socket_desc, buffer, strlen(buffer), 0)){
+            print_error("Failed to send file '%s'", filepath);
+            fclose(fp);
+            return 0;
         }
+
         memset(buffer, 0, 256);
     }
     fclose(fp);
-    send(client_socket_desc, buffer, 256, 0);
     print_debug("Sent file '%s'", filepath);
     return 1;
 }
@@ -248,7 +253,7 @@ void send_302(SOCKET client_socket_desc, char* redirect, char *token) {
     char header[128] = "";
     sprintf(header, header_format, redirect, token, set_cookie_params);
     print_debug("Sending header: %s", header);
-    send(client_socket_desc, header, strlen(header), 0);
+    send_all(client_socket_desc, header, strlen(header), 0);
 }
 
 void send_404(SOCKET client_socket_desc) {
@@ -257,7 +262,7 @@ void send_404(SOCKET client_socket_desc) {
         "Content-Length: 0\r\n"
         "Connection: close\r\n"
         "\r\n";
-    if (send(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
+    if (send_all(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
         print_error("Failed to send 404 Not Found");
     }
 }
@@ -268,7 +273,7 @@ void send_501(SOCKET client_socket_desc) {
         "Content-Length: 0\r\n"
         "Connection: close\r\n"
         "\r\n";
-    if (send(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
+    if (send_all(client_socket_desc, error_msg, strlen(error_msg), 0) == SOCKET_ERROR) {
         print_error("Failed to send 501 Not Implemented");
     }
 }
@@ -283,9 +288,9 @@ void send_obj_json(SOCKET client_desc, char* obj_json) {
     sprintf(header, header_format, strlen(obj_json));
     
     print_debug("Sending header: %s", header);
-    send(client_desc, header, strlen(header), 0);
+    send_all(client_desc, header, strlen(header), 0);
 
-    send(client_desc, obj_json, strlen(obj_json), 0);
+    send_all(client_desc, obj_json, strlen(obj_json), 0);
 }
 
 void handle_api_request(SOCKET client_socket_desc, char* request){
@@ -388,7 +393,7 @@ void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* reques
     }
 
     print_debug("Sending POST to API: %s", request_body);
-    if (send(API_socket_desc, request_body, strlen(request_body), 0) == SOCKET_ERROR) {
+    if (send_all(API_socket_desc, request_body, strlen(request_body), 0) == SOCKET_ERROR) {
         print_error("Failed to send POST to API server");
         return;
     }
@@ -445,7 +450,7 @@ int main(int argc, char** argv) {
     parse_argv(argc, argv);
 
     print_debug("Starting server with address 'http://%s:%d'...", ip_addr, port_num);
-    printf("Starting server with address 'http://%s:%d'...", ip_addr, port_num);
+    printf("Starting server with address 'http://%s:%d'...\n", ip_addr, port_num);
 
     // Initialize WinSock
     WSADATA wsaData = init_winsock();
