@@ -83,11 +83,11 @@ class Database:
         for i in range(len(objDict) - 1):
             command += ",?"
         command += ")"
- 
-        self.execute(command, *objDict.values())
+
+        return self.execute(command, *objDict.values()).get_affected_items_count() > 0
 
     def getUser(self, username):
-        """Get a user from the database. Return None if username and password do not match."""
+        """Get a user from the database."""
         command = 'SELECT * FROM User WHERE username = ?'
         result = self.execute(command, username).fetch_all()
         
@@ -95,3 +95,30 @@ class Database:
         if(len(result) != 1): return None
         
         return User(result[0][1], result[0][2], result[0][3], result[0][4], result[0][5], result[0][0])
+    
+    def getChannel(self, channel_id):
+        """Get a channel from the database."""
+        command = 'SELECT * FROM Channel WHERE id = ?'
+        result = self.execute(command, channel_id).fetch_all()
+        
+        if(len(result) != 1): return None
+        
+        return Channel(result[0][1], result[0][0])
+
+    def getLastChannel(self):
+        """Get the last channel from the database."""
+        command = 'SELECT * FROM Channel ORDER BY id DESC LIMIT 1;'
+        result = self.execute(command).fetch_all()
+        
+        if(len(result) != 1): return None
+        
+        return Channel(result[0][1], result[0][0])
+    
+    def getMembership(self, channel_id, user_id):
+        """Get a membership from the database."""
+        command = 'SELECT * FROM Membership WHERE channel_id = ? AND user_id = ?'
+        result = self.execute(command, channel_id, user_id).fetch_all()
+
+        if(len(result) != 1): return None
+
+        return Membership(result[0][0], result[0][1], result[0][2])

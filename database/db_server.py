@@ -26,7 +26,9 @@ def handle_request(db : Database, type, request_dict) -> DatabaseObject | None:
 
     if type == "login": response_obj = handle_login_request(db, request_dict)
     if type == "register": response_obj = handle_register_request(db, request_dict)
-    
+    if type == "create_channel": response_obj = handle_create_channel_request(db, request_dict)
+    if type == "join_channel": response_obj = handle_join_channel_request(db, request_dict)
+
     if response_obj: print(response_obj, file = fp)
     return response_obj
 
@@ -54,9 +56,57 @@ def handle_register_request(db : Database, request_dict: dict):
     fname = request_dict["fname"]
     lname = request_dict["lname"]
     user = User(username, pword, email, fname, lname)
-    db.insert(user)
+    if(not db.insert(user)): return None
     user = db.getUser(username)
+    if(not user): print("Warning: Failed to register user with username " + username , file = fp)
     return user
+
+def handle_create_channel_request(db : Database, request_dict : dict):
+    """Handles create channel request from client"""
+    channel_name = request_dict["channelName"]
+    owner = db.getUser(request_dict["username"])
+    if(not owner):
+        print("Warning: Failed to find user with username " + request_dict["username"], file = fp)
+        return None
+    
+    #Add channel
+    channel = Channel(channel_name)
+    if(db.insert(channel)): channel = db.getChannel(channel_name)
+    if(not channel or channel.id == None):
+        print("Warning: Failed to create channel with name " + channel_name, file = fp)
+        return None
+
+    #Add user-channel membership
+    perms = int("11111111", 2)
+    ownership = Membership(channel.id, owner.id, perms)
+    if(not db.insert(ownership)):
+        print(f'Warning: Failed to add user-channel membership for owner {owner.username} and channel {channel.channel_name}', file = fp)
+        return None
+    
+    return channel
+
+def handle_join_channel_request(db : Database, request_dict : dict):
+    """Handles join channel request from client"""
+    perms = 0
+    if("perms" in request_dict): perms = request_dict["perms"]
+    channel = db.getChannel(request_dict["channelID"])
+    if(not channel):
+        print("Warning: Failed to find channel with id " + request_dict["channelID"], file = fp)
+        return None
+    user = db.getUser(request_dict["username"])
+    if(not user):
+        print("Warning: Failed to find user with username " + request_dict["username"], file = fp)
+        return None
+
+    #Add user-channel membership
+    membership = Membership(channel.id, user.id, perms)
+    if(not db.insert(membership)): return None
+    membership = db.getMembership(channel.id, user.id)
+    if(not membership):
+        print(f'Warning: Failed to add user-channel membership for user {user.username} and channel {channel.channel_name}', file = fp)
+        return None
+
+    return membership
 
 def send_response(conn, response_obj : DatabaseObject | None):
         conn.sendall(bytes(str(response_obj), 'utf-8'))
