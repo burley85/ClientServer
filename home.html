@@ -4,23 +4,53 @@
             try{
             //Get User Object from server
                 let userRequest = new Request("api/user", {
-                    method: "GET",
-                    //credentials: "same-origin" // Include cookies in the request
+                    method: "GET"
                 });
                 response = await fetch(userRequest);
-                if (response.status === 200) {
-                    const user = await response.json();
-                    document.getElementById("Heading").innerHTML = "Hello, " + user.fname;
-                } else {
-                    throw new Error("Error in response");
+                const user = await response.json();
+                document.getElementById("Heading").innerHTML = "Hello, " + user.fname;
+                return user;
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            return null;
+        }
+        async function getChannels(){
+            try{
+                //Get Channels from server
+                let channelRequest = new Request("api/channels", {
+                    method: "GET"
+                });
+                response = await fetch(channelRequest);
+                const channels = await response.json();
+                for(let i = 0; i < channels.length; i++){
+                    let channel = channels[i];
+                    let li = document.createElement("li");
+                    let a = document.createElement("a");
+                    a.href = "channel.html?channel=" + channel.id;
+                    a.innerHTML = channel.name;
+                    li.appendChild(a);
+                    document.getElementById("channelList").appendChild(li);
                 }
             } catch (error) {
-                console.error("An error occurred:", error); // Handle errors
+                console.error("ERROR:", error);
             }
         }
+        async function load(){
+            user = await getUser();
+            if(user != null) getChannels();
+        }
     </script>
-    <body onload = "getUser()">
+    <body onload = "load()">
         <h1 id = "Heading"></h1>
+        <h2>Channels</h2>
+        <ul id = "channelList">
+        </ul>
+        <h2>Direct Messages</h2>
+        <ul id = "DMList">
+        </ul>
+        <a href="createChannel.html">Create Channel</a>
+        <a href="createDM.html">Direct Message</a>
         <form id="logout-form" method="post">
             <button type="submit" name = "type" value="logout">Logout</button>
         </form>
