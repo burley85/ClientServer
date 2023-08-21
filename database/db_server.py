@@ -26,8 +26,10 @@ def handle_request(db : Database, type, request_dict) -> DatabaseObject | None:
 
     if type == "login": response_obj = handle_login_request(db, request_dict)
     if type == "register": response_obj = handle_register_request(db, request_dict)
+    if type == "get_channels": response_obj = handle_get_channels_request(db, request_dict)
     if type == "create_channel": response_obj = handle_create_channel_request(db, request_dict)
     if type == "join_channel": response_obj = handle_join_channel_request(db, request_dict)
+
 
     if response_obj: print(response_obj, file = fp)
     return response_obj
@@ -60,6 +62,14 @@ def handle_register_request(db : Database, request_dict: dict):
     user = db.getUser(username)
     if(not user): print("Warning: Failed to register user with username " + username , file = fp)
     return user
+
+def handle_get_channels_request(db : Database, request_dict : dict):
+    user = db.getUser(request_dict["username"])
+    if(not user):
+        print("Warning: Failed to find user with username " + request_dict["username"], file = fp)
+        return None
+
+    return db.getChannels(user.id)
 
 def handle_create_channel_request(db : Database, request_dict : dict):
     """Handles create channel request from client"""

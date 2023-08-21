@@ -86,13 +86,23 @@ class Database:
 
         return self.execute(command, *objDict.values()).get_affected_items_count() > 0
 
-    def getUser(self, username):
+    def getUser(self, username = None, id = None):
         """Get a user from the database."""
-        command = 'SELECT * FROM User WHERE username = ?'
-        result = self.execute(command, username).fetch_all()
-        
-        if(len(result) > 1): print("WARNING: Multiple users with the same username.")
-        if(len(result) != 1): return None
+        if(username == None and id == None): return None
+
+        if(username != None):
+            command = 'SELECT * FROM User WHERE username = ?'
+            result = self.execute(command, username).fetch_all()
+            
+            if(len(result) != 1): return None
+
+            if(id != None and result[0][0] != id): return None
+            
+        else:
+            command = 'SELECT * FROM User WHERE id = ?'
+            result = self.execute(command, id).fetch_all()
+            
+            if(len(result) != 1): return None
         
         return User(result[0][1], result[0][2], result[0][3], result[0][4], result[0][5], result[0][0])
     
@@ -122,3 +132,15 @@ class Database:
         if(len(result) != 1): return None
 
         return Membership(result[0][0], result[0][1], result[0][2])
+    
+    def getUserChannels(self, user_id):
+        """Get all channels a user is a member of."""
+        command = 'SELECT * FROM Membership WHERE user_id = ?'
+        result = self.execute(command, user_id).fetch_all()
+
+        channels = []
+        for row in result:
+            channel = self.getChannel(row[0])
+            if(channel != None): channels.append(channel)
+        
+        return channels
