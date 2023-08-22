@@ -179,13 +179,40 @@ void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* reques
         return;
     }
 
-    print_debug("Sending POST to API: %s", request_body);
-    if (!send_all(API_socket_desc, request_body, strlen(request_body), 0)) {
-        print_error("Failed to send POST to API server");
-        return;
+    // Append username to request body
+    char* session_token = strstr(request, "token=");
+    if(session_token != NULL){
+        session_token += 6;
+        char* new_request = request_body;
+        int i;
+        for(i = 0; i < max_sessions; i++){
+            if(!strncmp(SessionMap[i].token, session_token, 16)){
+                char *username = SessionMap[i].user->username;
+                new_request = malloc(strlen(username) + strlen(request_body) + strlen("&username=") + 1);
+                sprintf(new_request, "%s&username=%s", request_body, username);
+                print_debug("Found user with token %s", session_token);
+                break;
+            }
+            else{
+                print_debug("User with token %s does not match %s", session_token, SessionMap[i].token);
+            }
+        }
+        if(i == max_sessions) print_warning("Could not find user with token %s", session_token);
+        
+        print_debug("Sending POST to API: %s", new_request);
+        if(!send_all(API_socket_desc, new_request, strlen(request_body), 0)){
+            print_error("Failed to send POST to API server");
+            return;
+        }
+        free(new_request);
     }
-
-
+    else{
+        print_debug("Sending POST to API: %s", request_body);
+        if(!send_all(API_socket_desc, request_body, strlen(request_body), 0)){
+            print_error("Failed to send POST to API server");
+            return;
+        }
+    }
     // Get API response
     char API_response[1024] = "";
     if(recv(API_socket_desc, API_response, sizeof(API_response), 0) == SOCKET_ERROR){
