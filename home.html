@@ -22,13 +22,15 @@
                     method: "GET"
                 });
                 response = await fetch(channelRequest);
-                const channels = await response.json();
+                channels = await response.json();
+                channels = channels.list;
+                console.log(channels);
                 for(let i = 0; i < channels.length; i++){
                     let channel = channels[i];
                     let li = document.createElement("li");
                     let a = document.createElement("a");
                     a.href = "channel.html?channel=" + channel.id;
-                    a.innerHTML = channel.name;
+                    a.innerHTML = channel.channel_name;
                     li.appendChild(a);
                     document.getElementById("channelList").appendChild(li);
                 }

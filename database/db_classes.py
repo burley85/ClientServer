@@ -1,12 +1,34 @@
 import mysqlx
 from hashlib import sha256
 
+
 class DatabaseObject:
     def __init__(self):
         pass
     def __str__(self):
         return f'{type(self).__name__} = {str(self.__dict__)}'
 
+class DatabaseObjectList:
+    def __init__(self, objType : type, objList : list = []):
+        self.objType : type = objType
+        self.list = objList
+    
+    def __str__(self):
+        listDictStr = "{'objType': \"" + str(self.objType.__name__) + "\", 'list': ["
+        for obj in self.list:
+            print(obj)
+            print(listDictStr)
+            if(obj is not self.list[0]): listDictStr += ", "
+            listDictStr += str(obj).split(" = ")[1]
+        listDictStr += "]}"
+
+        return f'{type(self).__name__} = {listDictStr}'
+    
+    def append(self, obj : DatabaseObject):
+        if(type(obj) != self.objType): return False
+        self.list.append(obj)
+        return True
+    
 class User(DatabaseObject):
     def __init__(self, username, pword, email=None, fname=None, lname=None, id=None):
         self.username = username
@@ -138,8 +160,10 @@ class Database:
         command = 'SELECT * FROM Membership WHERE user_id = ?'
         result = self.execute(command, user_id).fetch_all()
 
-        channels = []
+        channels = DatabaseObjectList(Channel, [])
+
         for row in result:
+            print("so far: " + str(channels))
             channel = self.getChannel(row[0])
             if(channel != None): channels.append(channel)
         

@@ -3,7 +3,7 @@
 
 #include <WinSock2.h>
 
-void handle_api_request(SOCKET client_socket_desc, char* request);
+void handle_api_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request);
 void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request);
 //If user was created successfully send 201 Created
 void handle_register_request(SOCKET client_socket_desc, void* dbObj);

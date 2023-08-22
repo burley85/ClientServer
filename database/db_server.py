@@ -2,7 +2,7 @@
 
 import socket
 import sys
-from db_classes import User, Channel, Membership, Message, DirectMessage, GroupMessage, Database, DatabaseObject
+from db_classes import *
 import traceback
 import urllib.parse
 
@@ -26,10 +26,9 @@ def handle_request(db : Database, type, request_dict) -> DatabaseObject | None:
 
     if type == "login": response_obj = handle_login_request(db, request_dict)
     if type == "register": response_obj = handle_register_request(db, request_dict)
-    if type == "get_channels": response_obj = handle_get_channels_request(db, request_dict)
+    if type == "channels": response_obj = handle_get_channels_request(db, request_dict)
     if type == "create_channel": response_obj = handle_create_channel_request(db, request_dict)
     if type == "join_channel": response_obj = handle_join_channel_request(db, request_dict)
-
 
     if response_obj: print(response_obj, file = fp)
     return response_obj
@@ -69,7 +68,7 @@ def handle_get_channels_request(db : Database, request_dict : dict):
         print("Warning: Failed to find user with username " + request_dict["username"], file = fp)
         return None
 
-    return db.getChannels(user.id)
+    return db.getUserChannels(user.id)
 
 def handle_create_channel_request(db : Database, request_dict : dict):
     """Handles create channel request from client"""
@@ -118,7 +117,7 @@ def handle_join_channel_request(db : Database, request_dict : dict):
 
     return membership
 
-def send_response(conn, response_obj : DatabaseObject | None):
+def send_response(conn, response_obj : DatabaseObject | None | DatabaseObjectList):
         conn.sendall(bytes(str(response_obj), 'utf-8'))
 
 def main():

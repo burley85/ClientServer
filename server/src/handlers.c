@@ -11,23 +11,67 @@ extern struct {
     User* user;
 } SessionMap[];
 
-void handle_api_request(SOCKET client_socket_desc, char* request){
-    char* request_obj = strstr(request, "GET /api/") + 9;
-    char* session_token = strstr(request, "token=") + 6;
+void handle_api_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){
+    char* request_obj_ptr = strstr(request, "GET /api/");
+    char request_obj[32];
+    memset(request_obj, 0, sizeof(request_obj));
+    sscanf(request_obj_ptr, "GET /api/%31s", request_obj);
 
-    if(strstr(request_obj, "user HTTP/1.1") == request_obj){
-        print_debug("Client sent GET request for user with token %s", session_token);
-        for(int i = 0; i < max_sessions; i++){
-            printf("Comparing %s to %s\n", SessionMap[i].token, session_token);
-            if(!strncmp(SessionMap[i].token, session_token, 16)){
-                print_debug("Found user with token %s", session_token);
-                char* userStr = userToStr(*(SessionMap[i].user));
-                send_obj_json(client_socket_desc, userStr);
-                free(userStr);
-                return;
+    char* token_ptr = strstr(request, "token=");
+    char session_token[17];
+    memset(session_token, 0, sizeof(session_token));
+    sscanf(token_ptr, "token=%16s", session_token);
+
+    print_debug("User with token %16s sent api request for %s", session_token, request_obj);
+    //Find the user using the session token
+    User* user = NULL;
+    int i;
+    for(i = 0; i < max_sessions; i++){
+        if(!strncmp(SessionMap[i].token, session_token, 16)){
+            print_debug("Found user with token %16s", session_token);
+            user = SessionMap[i].user;
+            break;
+        }
+    }
+    if(i == max_sessions){
+        print_warning("Could not find user with token %16s", session_token);
+        send_404(client_socket_desc);
+        return;
+    }
+
+    //Send user object if request is for user
+    if(!strcmp(request_obj, "user")
+        //strstr(request_obj_ptr, "GET /api/user HTTP") == request_obj_ptr
+        ){
+        char* userStr = userToStr(*(SessionMap[i].user));
+        send_obj_json(client_socket_desc, userStr);
+        free(userStr);
+        return;
+    }
+    //Otherwise, create API server request
+    else{
+        if(!strcmp("channels", request_obj)){
+            char* api_request_format = "type=%s&username=%s";
+            char api_request[256] = "";
+            sprintf(api_request, api_request_format, request_obj, user->username);
+            print_debug("Sending API request: %s", api_request);
+            if (!send_all(API_socket_desc, api_request, strlen(api_request), 0))
+                    print_error("Failed to send API request");
+        }
+        char api_response[1024] = "";
+        if(recv(API_socket_desc, api_response, sizeof(api_response), 0) == SOCKET_ERROR){
+            print_error("Failed to receive API response");
+            return;
+        }
+        print_debug("Received API response: %s\n", api_response);
+        char* channel_list = strstr(api_response, "DatabaseObjectList = ") + 21;
+        //Replace all ' with " unless preceded by '\'
+        for(int i = 0; i < strlen(channel_list); i++){
+            if(channel_list[i] == '\'' && channel_list[i-1] != '\\'){
+                channel_list[i] = '\"';
             }
         }
-        print_warning("Could not find user with token %16s", session_token);
+        send_obj_json(client_socket_desc, channel_list);
     }
 
 }
@@ -45,7 +89,7 @@ void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request
     // Check if client set API request
     if (strstr(request, "GET /api") == request) {
         print_debug("Client sent API request");
-        handle_api_request(client_socket_desc, request);
+        handle_api_request(API_socket_desc, client_socket_desc, request);
         return;
     }
 
@@ -136,7 +180,7 @@ void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* reques
     }
 
     print_debug("Sending POST to API: %s", request_body);
-    if (send_all(API_socket_desc, request_body, strlen(request_body), 0) == SOCKET_ERROR) {
+    if (!send_all(API_socket_desc, request_body, strlen(request_body), 0)) {
         print_error("Failed to send POST to API server");
         return;
     }
