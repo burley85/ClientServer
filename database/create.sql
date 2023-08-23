@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS Membership (
     /* permflags interpreted as array of 8 bools in the following order:
     delete channel, change priveleges, ban user, pin message, delete other's message,
     edit/delete own message, invite users, send message */
-    perm_flags TINYINT NOT NULL,
+    perm_flags TINYINT UNSIGNED NOT NULL,
     PRIMARY KEY(channel_id, user_id),
     FOREIGN KEY(channel_id) REFERENCES Channel(id),
     FOREIGN KEY(user_id) REFERENCES User(id)

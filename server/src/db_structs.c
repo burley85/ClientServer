@@ -48,55 +48,6 @@ int searchJsonForInt(char* json, char* key){
     return strtol(start, NULL, 10);
 }
 
-//Converts a string to a dynamically allocated database object
-//Returns NULL if the string is "None"
-void* strToDatabaseObject(char* str){
-    if(strncmp(str, "None", 4) == 0) return NULL;
-
-    if(strstr(str, "User = ") == str){
-        str += 7;
-        User *user = malloc(sizeof(User));
-        *user = strToUser(str);
-        char *userStr = userToStr(*user);
-        print_debug("Converted %s to user: %s", str, userStr);
-        free(userStr);
-        return user;
-    }
-
-    if(strstr(str, "Channel = ") == str){
-        str += 10;
-        Channel *channel = malloc(sizeof(Channel));
-        *channel = strToChannel(str);
-        char* channelStr = channelToStr(*channel);
-        print_debug("Converted %s to channel: %s", str, channelStr);
-        free(channelStr);
-        return channel;
-    }
-
-    if(strstr(str, "Membership = ") == str){
-        str += 13;
-        Membership *membership = malloc(sizeof(Membership));
-        *membership = strToMembership(str);
-        char* membershipStr = membershipToStr(*membership);
-        print_debug("Converted %s to membership: %s", str, membershipStr);
-        free(membershipStr);
-        return membership;
-    }
-
-    if(strstr(str, "Message = ") == str){
-        str += 10;
-        Message *message = malloc(sizeof(Message));
-        *message = strToMessage(str);
-        char* messageStr = messageToStr(*message);
-        print_debug("Converted %s to message: %s", str, messageStr);
-        free(messageStr);
-        return message;
-    }
-
-    print_warning("Could not convert %s to database object", str);
-    return NULL;
-}
-
 User strToUser(char *str){
     User user;
 
@@ -173,5 +124,54 @@ Message strToMessage(char *str){
 }
 
 char* messageToStr(Message message){
+    return NULL;
+}
+
+//Converts a string to a dynamically allocated database object
+//Returns NULL if the string is "None"
+void* strToDatabaseObject(char* str){
+    if(strncmp(str, "None", 4) == 0) return NULL;
+
+    if(strstr(str, "User = ") == str){
+        str += 7;
+        User *user = malloc(sizeof(User));
+        *user = strToUser(str);
+        char *userStr = userToStr(*user);
+        print_debug("Converted %s to user: %s", str, userStr);
+        free(userStr);
+        return user;
+    }
+
+    if(strstr(str, "Channel = ") == str){
+        str += 10;
+        Channel *channel = malloc(sizeof(Channel));
+        *channel = strToChannel(str);
+        char* channelStr = channelToStr(*channel);
+        print_debug("Converted %s to channel: %s", str, channelStr);
+        free(channelStr);
+        return channel;
+    }
+
+    if(strstr(str, "Membership = ") == str){
+        str += 13;
+        Membership *membership = malloc(sizeof(Membership));
+        *membership = strToMembership(str);
+        char* membershipStr = membershipToStr(*membership);
+        print_debug("Converted %s to membership: %s", str, membershipStr);
+        free(membershipStr);
+        return membership;
+    }
+
+    if(strstr(str, "Message = ") == str){
+        str += 10;
+        Message *message = malloc(sizeof(Message));
+        *message = strToMessage(str);
+        char* messageStr = messageToStr(*message);
+        print_debug("Converted %s to message: %s", str, messageStr);
+        free(messageStr);
+        return message;
+    }
+
+    print_warning("Could not convert %s to database object", str);
     return NULL;
 }

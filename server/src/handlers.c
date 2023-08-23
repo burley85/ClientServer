@@ -167,6 +167,14 @@ void handle_logout_request(SOCKET client_socket_desc, char* request){
     send_302(client_socket_desc, "login.html", NULL);
 }
 
+void handle_create_channel_request(SOCKET client_socket_desc, void* dbObj){
+    Channel* c = (Channel*) dbObj;
+
+    if(c != NULL) send_page(client_socket_desc, "home.html", "text/html", "201 Created");
+    
+    else send_page(client_socket_desc, "createChannel.html", "text/html", "400 Bad Request");
+}
+
 //Returns a pointer to a dynamically allocated database struct
 void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request) {
     //Remove headers from request
@@ -200,7 +208,7 @@ void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* reques
         if(i == max_sessions) print_warning("Could not find user with token %s", session_token);
         
         print_debug("Sending POST to API: %s", new_request);
-        if(!send_all(API_socket_desc, new_request, strlen(request_body), 0)){
+        if(!send_all(API_socket_desc, new_request, strlen(new_request), 0)){
             print_error("Failed to send POST to API server");
             return;
         }
@@ -226,4 +234,5 @@ void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* reques
 
     if(!strncmp(formType, "register", 8)) handle_register_request(client_socket_desc, dbObj);
     if(!strncmp(formType, "login", 5)) handle_login_request(client_socket_desc, dbObj);
+    if(!strncmp(formType, "createChannel", 13)) handle_create_channel_request(client_socket_desc, dbObj);
 }

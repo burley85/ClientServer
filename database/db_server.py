@@ -27,7 +27,7 @@ def handle_request(db : Database, type, request_dict) -> DatabaseObject | None:
     if type == "login": response_obj = handle_login_request(db, request_dict)
     if type == "register": response_obj = handle_register_request(db, request_dict)
     if type == "channels": response_obj = handle_get_channels_request(db, request_dict)
-    if type == "create_channel": response_obj = handle_create_channel_request(db, request_dict)
+    if type == "createChannel": response_obj = handle_create_channel_request(db, request_dict)
     if type == "join_channel": response_obj = handle_join_channel_request(db, request_dict)
 
     if response_obj: print(response_obj, file = fp)
@@ -72,7 +72,7 @@ def handle_get_channels_request(db : Database, request_dict : dict):
 
 def handle_create_channel_request(db : Database, request_dict : dict):
     """Handles create channel request from client"""
-    channel_name = request_dict["channelName"]
+    channel_name = request_dict["channel_name"]
     owner = db.getUser(request_dict["username"])
     if(not owner):
         print("Warning: Failed to find user with username " + request_dict["username"], file = fp)
@@ -80,7 +80,7 @@ def handle_create_channel_request(db : Database, request_dict : dict):
     
     #Add channel
     channel = Channel(channel_name)
-    if(db.insert(channel)): channel = db.getChannel(channel_name)
+    if(db.insert(channel)): channel = db.getLastChannel()
     if(not channel or channel.id == None):
         print("Warning: Failed to create channel with name " + channel_name, file = fp)
         return None
@@ -143,6 +143,8 @@ def main():
                 request_dict = request_bytes_to_dict(api_request)
                 response_object = handle_request(db, request_dict["type"], request_dict)
 
+
+                print("Sending response: " + str(response_object))
                 send_response(conn, response_object)
 
 if(__name__ == "__main__"):

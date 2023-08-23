@@ -42,10 +42,8 @@ typedef struct {
 void* strToDatabaseObject(char* str);
 
 char* userToStr(User user);
-
-static User strToUser(char *str);
-static Channel strToChannel(char *str);
-static Membership strToMembership(char *str);
-static Message strToMessage(char *str);
+char* channelToStr(Channel channel);
+char* membershipToStr(Membership membership);
+char* messageToStr(Message message);
 
 #endif
