@@ -39,11 +39,18 @@ typedef struct {
     int channel_id;
 } GroupMessage;
 
+typedef struct {
+    int sender_id;
+    int receiver_id;
+    int channel_id;
+} Invitation;
+
 void* strToDatabaseObject(char* str);
 
 char* userToStr(User user);
 char* channelToStr(Channel channel);
 char* membershipToStr(Membership membership);
 char* messageToStr(Message message);
+char* InvitationToStr(Invitation invitation);
 
 #endif

@@ -127,6 +127,28 @@ char* messageToStr(Message message){
     return NULL;
 }
 
+Invitation strToInvitation(char *str){
+    Invitation invitation;
+
+    print_debug("Converting %s to invitation", str);
+
+    invitation.sender_id = searchJsonForInt(str, "sender_id");
+    invitation.receiver_id = searchJsonForInt(str, "receiver_id");
+    invitation.channel_id = searchJsonForInt(str, "channel_id");
+    
+    return invitation;
+}
+
+char* invitationToStr(Invitation invitation){
+    char* str = malloc(512);
+    sprintf(str,
+            "{\"sender_id\": \"%d\", \"receiver_id\": \"%d\", "
+            "\"channel_id\": \"%d\", }",
+            invitation.sender_id, invitation.receiver_id,
+            invitation.channel_id);
+    return str;
+}
+
 //Converts a string to a dynamically allocated database object
 //Returns NULL if the string is "None"
 void* strToDatabaseObject(char* str){

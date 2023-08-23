@@ -66,6 +66,12 @@ class GroupMessage (Message):
         super().__init__(sender_id, message_text, message_time, id)
         self.channel_id = channel_id
 
+class Invitation(DatabaseObject):
+    def __init__(self, sender_id, receiver_id, channel_id):
+        self.sender_id = sender_id
+        self.receiver_id = receiver_id
+        self.channel_id = channel_id
+
 class Database:
     def __init__(self, host, port, user, password):
         self.host = host
