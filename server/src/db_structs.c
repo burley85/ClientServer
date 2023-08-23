@@ -53,11 +53,48 @@ int searchJsonForInt(char* json, char* key){
 void* strToDatabaseObject(char* str){
     if(strncmp(str, "None", 4) == 0) return NULL;
 
-    User* obj = malloc(sizeof(User));
-    *obj = strToUser(str);
-    printf(userToStr(*obj));
+    if(strstr(str, "User = ") == str){
+        str += 7;
+        User *user = malloc(sizeof(User));
+        *user = strToUser(str);
+        char *userStr = userToStr(*user);
+        print_debug("Converted %s to user: %s", str, userStr);
+        free(userStr);
+        return user;
+    }
 
-    return obj;
+    if(strstr(str, "Channel = ") == str){
+        str += 10;
+        Channel *channel = malloc(sizeof(Channel));
+        *channel = strToChannel(str);
+        char* channelStr = channelToStr(*channel);
+        print_debug("Converted %s to channel: %s", str, channelStr);
+        free(channelStr);
+        return channel;
+    }
+
+    if(strstr(str, "Membership = ") == str){
+        str += 13;
+        Membership *membership = malloc(sizeof(Membership));
+        *membership = strToMembership(str);
+        char* membershipStr = membershipToStr(*membership);
+        print_debug("Converted %s to membership: %s", str, membershipStr);
+        free(membershipStr);
+        return membership;
+    }
+
+    if(strstr(str, "Message = ") == str){
+        str += 10;
+        Message *message = malloc(sizeof(Message));
+        *message = strToMessage(str);
+        char* messageStr = messageToStr(*message);
+        print_debug("Converted %s to message: %s", str, messageStr);
+        free(messageStr);
+        return message;
+    }
+
+    print_warning("Could not convert %s to database object", str);
+    return NULL;
 }
 
 User strToUser(char *str){
@@ -77,22 +114,55 @@ User strToUser(char *str){
 
 char* userToStr(User user){
     char* str = malloc(512);
-    sprintf(str, "{\"username\": \"%s\", \"pword\": \"%s\", \"email\": \"%s\", \"fname\": \"%s\", \"lname\": \"%s\", \"id\": \"%d\"}", user.username, user.pword, user.email, user.fname, user.lname, user.id);
+    sprintf(str,
+            "{\"username\": \"%s\", \"pword\": \"%s\", "
+            "\"email\": \"%s\", \"fname\": \"%s\", "
+            "\"lname\": \"%s\", \"id\": \"%d\"}",
+            user.username, user.pword,
+            user.email, user.fname,
+            user.lname, user.id);
     return str;
 }
 
 Channel strToChannel(char *str){
     Channel channel;
 
+    print_debug("Converting %s to channel", str);
+
+    searchJsonForStr(str, "channel_name", channel.channel_name);
+    channel.id = searchJsonForInt(str, "id");
 
     return channel;
+}
+
+char* channelToStr(Channel channel){
+    char* str = malloc(512);
+    sprintf(str,
+            "{\"channel_name\": \"%s\", \"id\": \"%d\"}",
+            channel.channel_name, channel.id);
+    return str;
 }
 
 Membership strToMembership(char *str){
     Membership membership;
     
+    print_debug("Converting %s to membership", str);
+    
+    membership.channel_id = searchJsonForInt(str, "channel_id");
+    membership.user_id = searchJsonForInt(str, "user_id");
+    membership.perm_flags = searchJsonForInt(str, "perm_flags");
 
     return membership;
+}
+
+char* membershipToStr(Membership membership){
+    char* str = malloc(512);
+    sprintf(str,
+            "{\"channel_id\": \"%d\", \"user_id\": \"%d\", "
+            "\"perm_flags\": \"%d\"}",
+            membership.channel_id, membership.user_id,
+            membership.perm_flags);
+    return str;
 }
 
 Message strToMessage(char *str){
@@ -100,4 +170,8 @@ Message strToMessage(char *str){
 
 
     return message;
+}
+
+char* messageToStr(Message message){
+    return NULL;
 }
