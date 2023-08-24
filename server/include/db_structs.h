@@ -51,6 +51,6 @@ char* userToStr(User user);
 char* channelToStr(Channel channel);
 char* membershipToStr(Membership membership);
 char* messageToStr(Message message);
-char* InvitationToStr(Invitation invitation);
+char* invitationToStr(Invitation invitation);
 
 #endif
