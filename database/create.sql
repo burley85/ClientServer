@@ -56,8 +56,7 @@ CREATE TABLE IF NOT EXISTS GroupMessage (
     FOREIGN KEY(channel_id) REFERENCES Channel(id)
 );
 
-
-CREATE TABLE IF NOT EXISTS INVITATION {
+CREATE TABLE IF NOT EXISTS Invitation {
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,
     channel_id INT NOT NULL,
@@ -66,7 +65,7 @@ CREATE TABLE IF NOT EXISTS INVITATION {
     FOREIGN KEY(receiver_id) REFERENCES User(id),
     FOREIGN KEY(channel_id) REFERENCES Channel(id)
 };
-}
+
 
 INSERT INTO User (username, pword, email, fname, lname) VALUES ('admin', 'admin', 'burley.85@osu.edu', 'dylan', 'burley');
 

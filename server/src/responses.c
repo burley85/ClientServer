@@ -88,6 +88,32 @@ void send_302(SOCKET client_socket_desc, char* redirect, char *token) {
     }
 }
 
+void send_303(SOCKET client_socket_desc, char* redirect) {
+    char* header_format =
+        "HTTP/1.1 302 Found\r\n"
+        "Location: %s\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n";
+
+    char header[128] = "";
+    sprintf(header, header_format, redirect);
+
+    if(!send_all(client_socket_desc, header, strlen(header), 0)){
+        print_error("Failed to send 302 Found");
+    }
+}
+
+void send_400(SOCKET client_socket_desc) {
+    const char* error_msg =
+        "HTTP/1.1 400 Bad Request\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+    if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
+        print_error("Failed to send 400 Bad Request");
+    }
+}
+
 void send_404(SOCKET client_socket_desc) {
     const char* error_msg =
         "HTTP/1.1 404 Not Found\r\n"
@@ -97,6 +123,17 @@ void send_404(SOCKET client_socket_desc) {
     if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
         print_error("Failed to send 404 Not Found");
     }
+}
+
+void send_500(SOCKET client_socket_desc){
+    const char* error_msg =
+        "HTTP/1.1 500 Internal Server Error\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+    if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
+        print_error("Failed to send 500 Internal Server Error");
+    }    
 }
 
 void send_501(SOCKET client_socket_desc) {
@@ -110,7 +147,7 @@ void send_501(SOCKET client_socket_desc) {
     }
 }
 
-void send_obj_json(SOCKET client_desc, char* obj_json) {
+void send_obj_json(SOCKET client_socket_desc, char* obj_json) {
     char* header_format =
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: application/json; charset=UTF-8\r\n"
@@ -120,12 +157,12 @@ void send_obj_json(SOCKET client_desc, char* obj_json) {
     sprintf(header, header_format, strlen(obj_json));
     
     print_debug("Sending header: %s", header);
-    if(!send_all(client_desc, header, strlen(header), 0)){
+    if(!send_all(client_socket_desc, header, strlen(header), 0)){
         print_error("Failed to send header for object '%s'", obj_json);
         return;
     }
 
-    if(!send_all(client_desc, obj_json, strlen(obj_json), 0)){
+    if(!send_all(client_socket_desc, obj_json, strlen(obj_json), 0)){
         print_error("Failed to send object '%s'", obj_json);
         return;
     }

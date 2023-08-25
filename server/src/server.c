@@ -47,13 +47,13 @@ void parse_argv(int argc, char** argv) {
     }
 }
 
-void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc) {
-    while (1) {
-        // Get client's response
-        char client_response[1024] = "";
+void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc){
+    while(1){
+        // Get client's request
+        char client_request[1024] = "";
         print_debug("Getting client request...");
 
-        int rval = recv(client_socket_desc, client_response, sizeof(client_response), 0);
+        int rval = recv(client_socket_desc, client_request, sizeof(client_request), 0);
         if (rval == SOCKET_ERROR) {
             print_error("recv() failed");
             return;
@@ -62,19 +62,7 @@ void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc) {
             print_debug("Client disconnected");
             return;
         }
-
-        print_debug("Client request: %s", client_response);
-
-        if (strncmp(client_response, "GET", 3) == 0)
-            handle_get(client_socket_desc, API_socket_desc, client_response);
-        
-        //Check if client sent POST request
-        else if (strncmp(client_response, "POST", 4) == 0)
-            handle_post(client_socket_desc, API_socket_desc, client_response);
-
-        // Send 501 Not Implemented for anything else
-        else send_501(client_socket_desc);
-        
+        handle_request(API_socket_desc, client_socket_desc, client_request);
     }
 }
 

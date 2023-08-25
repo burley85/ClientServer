@@ -11,68 +11,155 @@ extern struct {
     User* user;
 } SessionMap[];
 
-void handle_api_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){
-    char* request_obj_ptr = strstr(request, "GET /api/");
-    char request_obj[32];
-    memset(request_obj, 0, sizeof(request_obj));
-    sscanf(request_obj_ptr, "GET /api/%31s", request_obj);
 
-    char* token_ptr = strstr(request, "token=");
+User* get_session(char* request){
+    char* token_ptr = strstr(request, "Cookie: token=");
+    if(token_ptr == NULL) return NULL;
+
     char session_token[17];
     memset(session_token, 0, sizeof(session_token));
-    sscanf(token_ptr, "token=%16s", session_token);
+    sscanf(token_ptr, "Cookie: token=%16s", session_token);
 
-    print_debug("User with token %16s sent api request for %s", session_token, request_obj);
-    //Find the user using the session token
-    User* user = NULL;
     int i;
     for(i = 0; i < max_sessions; i++){
         if(!strncmp(SessionMap[i].token, session_token, 16)){
             print_debug("Found user with token %16s", session_token);
-            user = SessionMap[i].user;
+            return SessionMap[i].user;
+        }
+    }
+    print_warning("Could not find user with token %16s", session_token);
+    return NULL;
+}
+
+//Create API request from HTTP request
+char* create_api_request(char* http_request){
+    struct {
+        char* http_cmd;
+        char* api_cmd;
+    } cmd_map[] = {
+        {"POST", "create"},
+        {"GET", "read"},
+        {"PATCH", "update"},
+        {"DELETE", "delete"}
+    };
+    char http_cmd[8] = "";
+    char obj[32] = "";
+    char parameters[512] = "";
+    int parameters_len = 0;
+
+    sscanf(http_request, "%7s /api/%[a-zA-Z]31s", http_cmd, obj);
+
+    //Choose API command based on HTTP command
+    char* api_cmd = NULL;
+    for(int i = 0; i < 4; i++){
+        if(!strcmp(cmd_map[i].http_cmd, http_cmd)){
+            api_cmd = cmd_map[i].api_cmd;
             break;
         }
     }
-    if(i == max_sessions){
-        print_warning("Could not find user with token %16s", session_token);
-        send_404(client_socket_desc);
+    if(api_cmd == NULL){
+        print_warning("Received HTTP request with unknown command: %s", http_cmd);
+        return NULL;
+    }
+
+    //Append URI query parameters to the end of the API request
+    char* query_ptr = strstr(http_request, "?");
+    char* end_of_first_line = strstr(http_request, "\r\n");
+    if(query_ptr != NULL && query_ptr < end_of_first_line - 1){
+        sprintf(parameters + parameters_len, "&%s", query_ptr);
+        parameters_len += strlen(parameters + parameters_len);
+    }
+
+    //Append request body to the end of the API request, unless it is a GET or DELETE request
+    if(strcmp(http_cmd, "GET") && strcmp(http_cmd, "DELETE")){
+        char* request_body = strstr(http_request, "\r\n\r\n");
+        if(request_body != NULL){
+            sprintf(parameters + parameters_len, "&%s", request_body + 4);
+            parameters_len += strlen(parameters + parameters_len);
+        }
+    }
+        
+    //Append username corresponding to session token to the end of the API request
+    //if username is not already in the request
+    if(strstr(parameters, "&username=") == NULL){
+        User* user = get_session(http_request);
+        if(user != NULL) {
+            sprintf(parameters + parameters_len, "&username=%s", user->username);
+            parameters_len += strlen(parameters + parameters_len);
+        }
+    }
+
+    char* api_request = malloc(600);
+    sprintf(api_request, "cmd=%s&obj=%s%s", api_cmd, obj, parameters);
+
+    return api_request;
+}
+
+//Forward HTTP request to API server and send API response to client
+void handle_api_get_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){    
+    char* api_request = create_api_request(request);
+
+    print_debug("Sending API request: %s", api_request);
+    if (!send_all(API_socket_desc, api_request, strlen(api_request), 0)){
+        print_error("Failed to send API request");
+        send_500(client_socket_desc);
         return;
     }
 
-    //Send user object if request is for user
-    if(!strcmp(request_obj, "user")
-        //strstr(request_obj_ptr, "GET /api/user HTTP") == request_obj_ptr
-        ){
-        char* userStr = userToStr(*(SessionMap[i].user));
-        send_obj_json(client_socket_desc, userStr);
-        free(userStr);
+    char api_response[1024] = "";
+    if(recv(API_socket_desc, api_response, sizeof(api_response), 0) == SOCKET_ERROR){
+        print_error("Failed to receive API response");
+        send_500(client_socket_desc);
         return;
     }
-    //Otherwise, create API server request
-    else{
-        if(!strcmp("channels", request_obj)){
-            char* api_request_format = "type=%s&username=%s";
-            char api_request[256] = "";
-            sprintf(api_request, api_request_format, request_obj, user->username);
-            print_debug("Sending API request: %s", api_request);
-            if (!send_all(API_socket_desc, api_request, strlen(api_request), 0))
-                    print_error("Failed to send API request");
+    
+    //Replace all ' with " unless preceded by '\'
+    for(int i = 0; i < strlen(api_response); i++){
+        if(api_response[i] == '\'' && api_response[i - 1] != '\\' && i > 0){
+            api_response[i] = '\"';
         }
-        char api_response[1024] = "";
-        if(recv(API_socket_desc, api_response, sizeof(api_response), 0) == SOCKET_ERROR){
-            print_error("Failed to receive API response");
-            return;
-        }
-        print_debug("Received API response: %s\n", api_response);
-        char* channel_list = strstr(api_response, "DatabaseObjectList = ") + 21;
-        //Replace all ' with " unless preceded by '\'
-        for(int i = 0; i < strlen(channel_list); i++){
-            if(channel_list[i] == '\'' && channel_list[i-1] != '\\'){
-                channel_list[i] = '\"';
-            }
-        }
-        send_obj_json(client_socket_desc, channel_list);
     }
+
+    print_debug("Received API response: %s\n", api_response);
+
+    if(!strcmp(api_response, "None")) send_400(client_socket_desc);
+    else{
+        //Look for the start of the JSON object
+        char* json_start = strstr(api_response, "{");
+        send_obj_json(client_socket_desc, json_start);
+    }
+}
+
+//Forward HTTP request to API server and redirect client to appropriate page
+void handle_api_post_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){
+    char* obj = strstr(request, "/api/") + 5;
+    char* api_request = create_api_request(request);
+
+    print_debug("Sending API request: %s", api_request);
+    if (!send_all(API_socket_desc, api_request, strlen(api_request), 0)){
+        free(api_request);
+        print_error("Failed to send API request");
+        send_500(client_socket_desc);
+        return;
+    }
+    
+    free(api_request);
+
+    char api_response;
+    if(recv(API_socket_desc, &api_response, sizeof(api_response), 0) == SOCKET_ERROR){
+        print_error("Failed to receive API response");
+        send_500(client_socket_desc);
+        return;
+    }
+
+    if(api_response == '1'){
+        //Send 303 See Other where the Location header is based on what object was created
+        if(!strcasecmp(obj, "user")) send_303(client_socket_desc, "login.html");
+        else if(!strcasecmp(obj, "channel")) send_303(client_socket_desc, "home.html");
+        else send_303(client_socket_desc, "home.html");
+        //TODO: handle other types of objects
+    }
+    else send_400(client_socket_desc);
 
 }
 
@@ -85,13 +172,6 @@ void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request
         send_page(client_socket_desc, root, "text/html", "200 OK");
         return;
     }
-    
-    // Check if client set API request
-    if (strstr(request, "GET /api") == request) {
-        print_debug("Client sent API request");
-        handle_api_request(API_socket_desc, client_socket_desc, request);
-        return;
-    }
 
     char* file_name = malloc(256);
     sscanf(request, "GET /%s HTTP/1.1", file_name);
@@ -100,17 +180,7 @@ void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request
     if (!send_page(client_socket_desc, file_name, "text/html", "200 OK")) {
         print_debug("Could not send page '%s'", file_name);
         send_404(client_socket_desc);
-    }
-}
-
-//If user was created successfully send 201 Created
-void handle_register_request(SOCKET client_socket_desc, void* dbObj){
-    User* u = (User*) dbObj;
-
-    if(u != NULL) send_page(client_socket_desc, "login.html", "text/html", "201 Created");
-    
-    else send_page(client_socket_desc, "register.html", "text/html", "409 Conflict");
-    
+    }    
 }
 
 // Returns session token
@@ -139,16 +209,48 @@ char* create_session(User *user){
 }
 
 //Send 302 Found if user was logged in successfully
-//Send 401 Unauthorized if login failed
-void handle_login_request(SOCKET client_socket_desc, void* dbObj){
-    User* u = (User*) dbObj;
+//Send 400 Bad Request if login failed
+void handle_login_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){
+    char *http_request_body = strstr(request, "\r\n\r\n");
+    if(http_request_body == NULL){
+        print_error("Could not find request body");
+        send_400(client_socket_desc);
+        return;
+    }
+    
+    char api_request[128] = "";
+    sprintf(api_request, "cmd=read&obj=user&%s", http_request_body + 4);
+    if(!send_all(API_socket_desc, api_request, strlen(api_request), 0)){
+        print_error("Failed to send API request");
+        send_500(client_socket_desc);
+        return;
+    }
 
-    if(u != NULL){
+    char api_response[1024] = "";
+    if(recv(API_socket_desc, api_response, sizeof(api_response), 0) == SOCKET_ERROR){
+        print_error("Failed to receive API response");
+        send_500(client_socket_desc);
+        return;
+    }
+    
+    //Replace all ' with " unless preceded by '\'
+    for(int i = 0; i < strlen(api_response); i++){
+        if(api_response[i] == '\'' && api_response[i - 1] != '\\' && i > 0){
+            api_response[i] = '\"';
+        }
+    }
+
+    print_debug("Received API response: %s\n", api_response);
+
+    User* u = (User*) strToDatabaseObject(api_response);
+
+    if(u == NULL){
+        print_warning("Invalid username or password");
+        send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized");
+    }
+    else{
         char* token = create_session(u);
         send_302(client_socket_desc, "home.html", token);
-    }
-    else {
-        send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized");
     }
 }
 
@@ -167,72 +269,16 @@ void handle_logout_request(SOCKET client_socket_desc, char* request){
     send_302(client_socket_desc, "login.html", NULL);
 }
 
-void handle_create_channel_request(SOCKET client_socket_desc, void* dbObj){
-    Channel* c = (Channel*) dbObj;
-
-    if(c != NULL) send_page(client_socket_desc, "home.html", "text/html", "201 Created");
-    
-    else send_page(client_socket_desc, "createChannel.html", "text/html", "400 Bad Request");
-}
-
-//Returns a pointer to a dynamically allocated database struct
-void handle_post(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request) {
-    //Remove headers from request
-    char* request_body = strstr(request, "\r\n\r\n") + 4;
-
-    char* formType = strstr(request_body, "type=") + 5;
-
-    if(!strncmp("logout", formType, 6)){
+void handle_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){
+    if(!strncmp(request, "GET /api/", 9))
+        handle_api_get_request(API_socket_desc, client_socket_desc, request);
+    else if(!strncmp(request, "POST /api/", 10))
+        handle_api_post_request(API_socket_desc, client_socket_desc, request);
+    else if(!strncmp(request, "GET /", 5))
+        handle_get(client_socket_desc, API_socket_desc, request);
+    else if(!strncmp(request, "POST /login", 6))
+        handle_login_request(API_socket_desc, client_socket_desc, request);
+    else if(!strncmp(request, "POST /logout", 6))
         handle_logout_request(client_socket_desc, request);
-        return;
-    }
-
-    // Append username to request body
-    char* session_token = strstr(request, "token=");
-    if(session_token != NULL){
-        session_token += 6;
-        char* new_request = request_body;
-        int i;
-        for(i = 0; i < max_sessions; i++){
-            if(!strncmp(SessionMap[i].token, session_token, 16)){
-                char *username = SessionMap[i].user->username;
-                new_request = malloc(strlen(username) + strlen(request_body) + strlen("&username=") + 1);
-                sprintf(new_request, "%s&username=%s", request_body, username);
-                print_debug("Found user with token %s", session_token);
-                break;
-            }
-            else{
-                print_debug("User with token %s does not match %s", session_token, SessionMap[i].token);
-            }
-        }
-        if(i == max_sessions) print_warning("Could not find user with token %s", session_token);
-        
-        print_debug("Sending POST to API: %s", new_request);
-        if(!send_all(API_socket_desc, new_request, strlen(new_request), 0)){
-            print_error("Failed to send POST to API server");
-            return;
-        }
-        free(new_request);
-    }
-    else{
-        print_debug("Sending POST to API: %s", request_body);
-        if(!send_all(API_socket_desc, request_body, strlen(request_body), 0)){
-            print_error("Failed to send POST to API server");
-            return;
-        }
-    }
-    // Get API response
-    char API_response[1024] = "";
-    if(recv(API_socket_desc, API_response, sizeof(API_response), 0) == SOCKET_ERROR){
-        print_error("Failed to receive API response");
-        return;
-    }
-    print_debug("Received API response: %s\n", API_response);
-
-    // Parse API response into database struct
-    void* dbObj = strToDatabaseObject(API_response);
-
-    if(!strncmp(formType, "register", 8)) handle_register_request(client_socket_desc, dbObj);
-    if(!strncmp(formType, "login", 5)) handle_login_request(client_socket_desc, dbObj);
-    if(!strncmp(formType, "createChannel", 13)) handle_create_channel_request(client_socket_desc, dbObj);
+    else send_400(client_socket_desc);
 }
