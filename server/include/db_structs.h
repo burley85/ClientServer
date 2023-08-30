@@ -40,6 +40,7 @@ typedef struct {
 } GroupMessage;
 
 typedef struct {
+    int id;
     int sender_id;
     int receiver_id;
     int channel_id;

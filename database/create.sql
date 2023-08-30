@@ -57,10 +57,11 @@ CREATE TABLE IF NOT EXISTS GroupMessage (
 );
 
 CREATE TABLE IF NOT EXISTS Invitation {
+    id INT AUTO_INCREMENT,
+    PRIMARY KEY(id),
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,
     channel_id INT NOT NULL,
-    PRIMARY KEY(sender_id, receiver_id, channel_id)
     FOREIGN KEY(sender_id) REFERENCES User(id),
     FOREIGN KEY(receiver_id) REFERENCES User(id),
     FOREIGN KEY(channel_id) REFERENCES Channel(id)

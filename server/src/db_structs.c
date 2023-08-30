@@ -169,12 +169,13 @@ Invitation* strToInvitation(char *str){
     Invitation* invitation = malloc(sizeof(Invitation));
     print_debug("Converting %s to invitation", str);
 
+    invitation->id = searchJsonForInt(str, "id");
     invitation->sender_id = searchJsonForInt(str, "sender_id");
     invitation->receiver_id = searchJsonForInt(str, "receiver_id");
     invitation->channel_id = searchJsonForInt(str, "channel_id");
     
-    if(invitation->sender_id == -1 || invitation->receiver_id == -1 ||
-            invitation->channel_id == -1){
+    if(invitation->id == -1 || invitation->sender_id == -1 ||
+            invitation->receiver_id == -1 || invitation->channel_id == -1){
         print_warning("Could not convert %s to invitation", str);
         free(invitation);
         return NULL;
@@ -190,8 +191,8 @@ Invitation* strToInvitation(char *str){
 char* invitationToStr(Invitation invitation){
     char* str = malloc(512);
     sprintf(str,
-            "{\"sender_id\": \"%d\", \"receiver_id\": \"%d\", "
-            "\"channel_id\": \"%d\"}",
+            "{\"id\": \"%d\", \"sender_id\": \"%d\", "
+            "\"receiver_id\": \"%d\", \"channel_id\": \"%d\"}",
             invitation.sender_id, invitation.receiver_id,
             invitation.channel_id);
     return str;

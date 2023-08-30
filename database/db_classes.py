@@ -37,17 +37,50 @@ class User(DatabaseObject):
         self.fname = fname
         self.lname = lname
         self.id = id
-
+    
+    @classmethod
+    def fromDict(cls, user_dict : dict):
+        if("username" not in user_dict or "pword" not in user_dict):
+            print("WARNING: Failed to create user from dict:" + str(user_dict))
+            return None
+        username = user_dict["username"]
+        pword = user_dict["pword"]
+        email = user_dict["email"] if "email" in user_dict else None
+        fname = user_dict["fname"] if "fname" in user_dict else None
+        lname = user_dict["lname"] if "lname" in user_dict else None
+        id = user_dict["id"] if "id" in user_dict else None
+        return User(username, pword, email, fname, lname, id)
+        
 class Channel(DatabaseObject):
     def __init__(self, name, id=None):
         self.channel_name = name
         self.id = id
+
+    @classmethod
+    def fromDict(cls, channel_dict : dict):
+        if("channel_name" not in channel_dict):
+            print("WARNING: Failed to create channel from dict:" + str(channel_dict))
+            return None
+        channel_name = channel_dict["channel_name"]
+        id = channel_dict["id"] if "id" in channel_dict else None
+        return Channel(channel_name, id)
 
 class Membership(DatabaseObject):
     def __init__(self, channel_id, user_id, perm_flags):
         self.channel_id = channel_id
         self.user_id = user_id
         self.perm_flags = perm_flags
+
+    @classmethod
+    def fromDict(cls, membership_dict):
+        if("channel_id" not in membership_dict or "user_id" not in membership_dict
+        or "perm_flags" not in membership_dict):
+            print("WARNING: Failed to create membership from dict:" + str(membership_dict))
+            return None
+        channel_id = membership_dict["channel_id"]
+        user_id = membership_dict["user_id"]
+        perm_flags = membership_dict["perm_flags"]
+        return Membership(channel_id, user_id, perm_flags)
 
 class Message(DatabaseObject):
     def __init__(self, sender_id, message_text, message_time, id=None):
@@ -60,17 +93,56 @@ class DirectMessage (Message):
     def __init__(self, sender_id, receiver_id, message_text, message_time, id=None):
         super().__init__(sender_id, message_text, message_time, id)
         self.receiver_id = receiver_id
-
+    
+    @classmethod
+    def fromDict(cls, message_dict):
+        if("sender_id" not in message_dict or "receiver_id" not in message_dict
+        or "message_text" not in message_dict or "message_time" not in message_dict):
+            print("WARNING: Failed to create direct message from dict:" + str(message_dict))
+            return None
+        sender_id = message_dict["sender_id"]
+        receiver_id = message_dict["receiver_id"]
+        message_text = message_dict["message_text"]
+        message_time = message_dict["message_time"]
+        id = message_dict["id"] if "id" in message_dict else None
+        return DirectMessage(sender_id, receiver_id, message_text, message_time, id)
+    
 class GroupMessage (Message):
     def __init__(self, sender_id, channel_id, message_text, message_time, id=None):
         super().__init__(sender_id, message_text, message_time, id)
         self.channel_id = channel_id
 
+    @classmethod
+    def fromDict(cls, message_dict):
+        if("sender_id" not in message_dict or "channel_id" not in message_dict
+        or "message_text" not in message_dict or "message_time" not in message_dict):
+            print("WARNING: Failed to create group message from dict:" + str(message_dict))
+            return None
+        sender_id = message_dict["sender_id"]
+        channel_id = message_dict["channel_id"]
+        message_text = message_dict["message_text"]
+        message_time = message_dict["message_time"]
+        id = message_dict["id"] if "id" in message_dict else None
+        return GroupMessage(sender_id, channel_id, message_text, message_time, id)
+
 class Invitation(DatabaseObject):
-    def __init__(self, sender_id, receiver_id, channel_id):
+    def __init__(self, sender_id, receiver_id, channel_id, id=None):
         self.sender_id = sender_id
         self.receiver_id = receiver_id
         self.channel_id = channel_id
+        self.id = id
+
+    @classmethod
+    def fromDict(cls, invitation_dict):
+        if("sender_id" not in invitation_dict or "receiver_id" not in invitation_dict
+        or "channel_id" not in invitation_dict):
+            print("WARNING: Failed to create invitation from dict:" + str(invitation_dict))
+            return None
+        sender_id = invitation_dict["sender_id"]
+        receiver_id = invitation_dict["receiver_id"]
+        channel_id = invitation_dict["channel_id"]
+        id = invitation_dict["id"] if "id" in invitation_dict else None
+        return Invitation(sender_id, receiver_id, channel_id, id)
 
 class Database:
     def __init__(self, host, port, user, password):
