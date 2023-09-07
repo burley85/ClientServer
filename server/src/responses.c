@@ -67,6 +67,21 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, cha
     return 1;
 }
 
+void send_201(SOCKET client_socket_desc, char* created_obj){
+    char* header_format =
+        "HTTP/1.1 201 Created\r\n"
+        "Content-Length: %d\r\n"
+        "\r\n";
+
+    char header[128] = "";
+    sprintf(header, header_format, strlen(created_obj));
+    print_debug("Sending header: %s", header);
+    if(!send_all(client_socket_desc, header, strlen(header), 0)
+    || !send_all(client_socket_desc, created_obj, strlen(created_obj), 0)){
+        print_error("Failed to send 201 Created");
+    }
+}
+
 void send_302(SOCKET client_socket_desc, char* redirect, char *token) {
     char *set_cookie_params = "Path=/; HttpOnly";
     if(token == NULL){
@@ -90,14 +105,14 @@ void send_302(SOCKET client_socket_desc, char* redirect, char *token) {
 
 void send_303(SOCKET client_socket_desc, char* redirect) {
     char* header_format =
-        "HTTP/1.1 302 Found\r\n"
+        "HTTP/1.1 303 See Other\r\n"
         "Location: %s\r\n"
         "Content-Length: 0\r\n"
         "\r\n";
 
     char header[128] = "";
     sprintf(header, header_format, redirect);
-
+    print_debug("Sending header: %s", header);
     if(!send_all(client_socket_desc, header, strlen(header), 0)){
         print_error("Failed to send 302 Found");
     }
@@ -109,6 +124,7 @@ void send_400(SOCKET client_socket_desc) {
         "Content-Length: 0\r\n"
         "Connection: close\r\n"
         "\r\n";
+    print_debug("Sending header: %s", error_msg);
     if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
         print_error("Failed to send 400 Bad Request");
     }
@@ -120,6 +136,7 @@ void send_404(SOCKET client_socket_desc) {
         "Content-Length: 0\r\n"
         "Connection: close\r\n"
         "\r\n";
+    print_debug("Sending header: %s", error_msg);
     if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
         print_error("Failed to send 404 Not Found");
     }
@@ -131,6 +148,7 @@ void send_500(SOCKET client_socket_desc){
         "Content-Length: 0\r\n"
         "Connection: close\r\n"
         "\r\n";
+    print_debug("Sending header: %s", error_msg);
     if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
         print_error("Failed to send 500 Internal Server Error");
     }    

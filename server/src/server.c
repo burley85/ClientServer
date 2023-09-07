@@ -62,6 +62,7 @@ void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc){
             print_debug("Client disconnected");
             return;
         }
+        print_debug("Client request: %s", client_request);
         handle_request(API_socket_desc, client_socket_desc, client_request);
     }
 }

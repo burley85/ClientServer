@@ -16,9 +16,13 @@ char* searchJsonForStr(char* json, char* key, char *value){
 
     char* start = strstr(json, look_for);
     if(start == NULL){
-        print_warning("Could not find %s in %s", look_for, json);
-        free(look_for);
-        return NULL;
+        sprintf(look_for, "\"%s\": ", key);
+        start = strstr(json, look_for);
+        if(start == NULL){
+            print_warning("Could not find %s in %s", look_for, json);
+            free(look_for);
+            return NULL;
+        }
     }
     start += strlen(look_for);
     char quote = *start; //Can be ' or "
@@ -50,8 +54,13 @@ int searchJsonForInt(char* json, char* key){
 
     char* start = strstr(json, look_for);
     if(start == NULL){
-        print_warning("Could not find %s in %s", look_for, json);
-        return -1;
+        sprintf(look_for, "\"%s\": ", key);
+        start = strstr(json, look_for);
+        if(start == NULL){
+            print_warning("Could not find %s in %s", look_for, json);
+            free(look_for);
+            return -1;
+        }
     }
     start += strlen(look_for);
 

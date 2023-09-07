@@ -3,7 +3,7 @@ CREATE DATABASE IF NOT EXISTS GroupMessaging;
 USE GroupMessaging;
 
 
-drop table User, GroupMessage, DirectMessage, Membership, Channel;
+drop table User, GroupMessage, DirectMessage, Membership, Channel, Invitation;
 
 
 CREATE TABLE IF NOT EXISTS User (
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS GroupMessage (
     FOREIGN KEY(channel_id) REFERENCES Channel(id)
 );
 
-CREATE TABLE IF NOT EXISTS Invitation {
+CREATE TABLE IF NOT EXISTS Invitation (
     id INT AUTO_INCREMENT,
     PRIMARY KEY(id),
     sender_id INT NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS Invitation {
     FOREIGN KEY(sender_id) REFERENCES User(id),
     FOREIGN KEY(receiver_id) REFERENCES User(id),
     FOREIGN KEY(channel_id) REFERENCES Channel(id)
-};
+);
 
 
 INSERT INTO User (username, pword, email, fname, lname) VALUES ('admin', 'admin', 'burley.85@osu.edu', 'dylan', 'burley');

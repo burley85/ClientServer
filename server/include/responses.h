@@ -7,6 +7,7 @@
 
 int send_all(SOCKET client_socket_desc, const char* buffer, int buffer_len, int flags);
 int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, char* response_code);
+void send_201(SOCKET client_socket_desc, char* created_obj);
 void send_302(SOCKET client_socket_desc, char* redirect, char *token);
 void send_303(SOCKET client_socket_desc, char* redirect);
 void send_400(SOCKET client_socket_desc);

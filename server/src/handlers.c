@@ -31,6 +31,49 @@ User* get_session(char* request){
     return NULL;
 }
 
+//Receive from API
+char* API_recv(SOCKET API_socket_desc){
+    //API response will look like "<Length of response>\n<Response>"
+    //Read length of API response
+    char length_buffer[16] = "";
+    if(recv(API_socket_desc, length_buffer, sizeof(length_buffer) - 1, 0) == SOCKET_ERROR){
+        print_error("Failed to receive API response length");
+        return NULL;
+    }
+    char* response_start = NULL;
+    long len = strtol(length_buffer, &response_start, 10);
+    
+    //response_start should point to '\n'
+    if(*response_start != '\n' || len == LONG_MAX || len == LONG_MIN){
+        print_error("Failed to receive valid API response length");
+        return NULL;
+    }
+    response_start++;
+
+    char* response = malloc(len + 1);
+    memset(response, 0, len + 1);
+    sprintf(response, "%s", response_start);
+    
+    int bytes_read = strlen(response_start);
+    while(bytes_read < len){
+        if(recv(API_socket_desc, response + bytes_read, len - bytes_read, 0) == SOCKET_ERROR){
+            print_error("Failed to receive API response");
+            free(response);
+            return NULL;
+        }
+        bytes_read += strlen(response + bytes_read);
+    }
+
+    //Replace all ' with " unless preceded by '\'
+    for(int i = 1; i < len + 1; i++){
+        if(response[i] == '\'' && response[i - 1] != '\\' && i > 0){
+            response[i] = '\"';
+        }
+    }
+
+    return response;
+}
+
 //Create API request from HTTP request
 char* create_api_request(char* http_request){
     struct {
@@ -64,9 +107,11 @@ char* create_api_request(char* http_request){
 
     //Append URI query parameters to the end of the API request
     char* query_ptr = strstr(http_request, "?");
-    char* end_of_first_line = strstr(http_request, "\r\n");
-    if(query_ptr != NULL && query_ptr < end_of_first_line - 1){
-        sprintf(parameters + parameters_len, "&%s", query_ptr);
+    char* end_of_first_line = strstr(http_request, " HTTP/1.1\r\n");
+    if(query_ptr != NULL && query_ptr < end_of_first_line){
+        query_ptr += 1;
+        int query_len = end_of_first_line - query_ptr;
+        sprintf(parameters + parameters_len, "&%.*s", query_len, query_ptr);
         parameters_len += strlen(parameters + parameters_len);
     }
 
@@ -79,13 +124,12 @@ char* create_api_request(char* http_request){
         }
     }
         
-    //Append username corresponding to session token to the end of the API request
-    //if username is not already in the request
-    if(strstr(parameters, "&username=") == NULL){
+    //If request is for a User and no parameters were specified, add user_id parameter, based on session token
+    if(!strcmp(obj, "User") && parameters_len == 0){
         User* user = get_session(http_request);
         if(user != NULL) {
-            sprintf(parameters + parameters_len, "&username=%s", user->username);
-            parameters_len += strlen(parameters + parameters_len);
+            sprintf(parameters + parameters_len, "&id=%d", user->id);
+            parameters_len = strlen(parameters);
         }
     }
 
@@ -106,18 +150,10 @@ void handle_api_get_request(SOCKET API_socket_desc, SOCKET client_socket_desc, c
         return;
     }
 
-    char api_response[1024] = "";
-    if(recv(API_socket_desc, api_response, sizeof(api_response), 0) == SOCKET_ERROR){
-        print_error("Failed to receive API response");
+    char* api_response = API_recv(API_socket_desc);
+    if(api_response == NULL){
         send_500(client_socket_desc);
         return;
-    }
-    
-    //Replace all ' with " unless preceded by '\'
-    for(int i = 0; i < strlen(api_response); i++){
-        if(api_response[i] == '\'' && api_response[i - 1] != '\\' && i > 0){
-            api_response[i] = '\"';
-        }
     }
 
     print_debug("Received API response: %s\n", api_response);
@@ -128,6 +164,7 @@ void handle_api_get_request(SOCKET API_socket_desc, SOCKET client_socket_desc, c
         char* json_start = strstr(api_response, "{");
         send_obj_json(client_socket_desc, json_start);
     }
+    free(api_response);
 }
 
 //Forward HTTP request to API server and redirect client to appropriate page
@@ -145,22 +182,27 @@ void handle_api_post_request(SOCKET API_socket_desc, SOCKET client_socket_desc, 
     
     free(api_request);
 
-    char api_response;
-    if(recv(API_socket_desc, &api_response, sizeof(api_response), 0) == SOCKET_ERROR){
-        print_error("Failed to receive API response");
+    char* api_response = API_recv(API_socket_desc);
+    if(api_response == NULL){
         send_500(client_socket_desc);
         return;
     }
+    print_debug("Received API response: %s\n", api_response);
+    //TODO: FIX THIS
 
-    if(api_response == '1'){
+    if(strcmp(api_response, "None")){
+        //Send 201 Created
         //Send 303 See Other where the Location header is based on what object was created
-        if(!strcasecmp(obj, "user")) send_303(client_socket_desc, "login.html");
-        else if(!strcasecmp(obj, "channel")) send_303(client_socket_desc, "home.html");
-        else send_303(client_socket_desc, "home.html");
+        send_201(client_socket_desc, strstr(api_response, "{"));
+        // if(!strncmp(obj, "User", 4)) send_303(client_socket_desc, "../login.html");
+        // else if(strncmp(obj, "Channel", 7)) send_303(client_socket_desc, "../home.html");
+        // else send_303(client_socket_desc, "../home.html");
         //TODO: handle other types of objects
     }
+    
     else send_400(client_socket_desc);
 
+    free(api_response);
 }
 
 void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request){
@@ -219,25 +261,18 @@ void handle_login_request(SOCKET API_socket_desc, SOCKET client_socket_desc, cha
     }
     
     char api_request[128] = "";
-    sprintf(api_request, "cmd=read&obj=user&%s", http_request_body + 4);
+    sprintf(api_request, "cmd=read&obj=User&%s", http_request_body + 4);
     if(!send_all(API_socket_desc, api_request, strlen(api_request), 0)){
         print_error("Failed to send API request");
         send_500(client_socket_desc);
         return;
     }
 
-    char api_response[1024] = "";
-    if(recv(API_socket_desc, api_response, sizeof(api_response), 0) == SOCKET_ERROR){
-        print_error("Failed to receive API response");
+    char* api_response = API_recv(API_socket_desc);
+
+    if(api_response == NULL){
         send_500(client_socket_desc);
         return;
-    }
-    
-    //Replace all ' with " unless preceded by '\'
-    for(int i = 0; i < strlen(api_response); i++){
-        if(api_response[i] == '\'' && api_response[i - 1] != '\\' && i > 0){
-            api_response[i] = '\"';
-        }
     }
 
     print_debug("Received API response: %s\n", api_response);
@@ -252,6 +287,7 @@ void handle_login_request(SOCKET API_socket_desc, SOCKET client_socket_desc, cha
         char* token = create_session(u);
         send_302(client_socket_desc, "home.html", token);
     }
+    free(api_response);
 }
 
 void handle_logout_request(SOCKET client_socket_desc, char* request){

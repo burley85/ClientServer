@@ -20,105 +20,37 @@ def request_bytes_to_dict(request : bytes):
     print(request_dict, file = fp)
     return request_dict
 
-def handle_request(db : Database, type, request_dict) -> DatabaseObject | None:
+def handle_request(db : Database, request_dict : dict) -> DatabaseObject | None | int:
     """Handles generic request from client"""
-    response_obj = None
-
-    if type == "login": response_obj = handle_login_request(db, request_dict)
-    if type == "register": response_obj = handle_register_request(db, request_dict)
-    if type == "channels": response_obj = handle_get_channels_request(db, request_dict)
-    if type == "createChannel": response_obj = handle_create_channel_request(db, request_dict)
-    if type == "join_channel": response_obj = handle_join_channel_request(db, request_dict)
-
-    if response_obj: print(response_obj, file = fp)
-    return response_obj
-
-def handle_login_request(db : Database, request_dict : dict):
-    """Handles login request from client"""
-    username = request_dict["username"]
-    pword = request_dict["pword"]
-
-    user = db.getUser(username)
-    if(user == None or user.pword != pword):
-        return None
-    return user
-
-def handle_register_request(db : Database, request_dict: dict):
-    """Handles register request from client"""
-    username = request_dict["username"]
-    
-    #Check if username is already taken
-    if(db.getUser(username) != None):
-        print("Warning: Username already taken", file = fp)
-        return None
-    
-    pword = request_dict["pword"]
-    email = request_dict["email"].replace("%40", "@")
-    fname = request_dict["fname"]
-    lname = request_dict["lname"]
-    user = User(username, pword, email, fname, lname)
-    if(not db.insert(user)): return None
-    user = db.getUser(username)
-    if(not user): print("Warning: Failed to register user with username " + username , file = fp)
-    return user
-
-def handle_get_channels_request(db : Database, request_dict : dict):
-    user = db.getUser(request_dict["username"])
-    if(not user):
-        print("Warning: Failed to find user with username " + request_dict["username"], file = fp)
+    if(request_dict["cmd"] == "create"): 
+        request_dict.pop("cmd")
+        #Convert request_dict to DatabaseObject
+        obj = databaseObjectFromDict(request_dict)
+        #Insert object into database and return success/fail
+        if(obj is not None): return db.insert(obj)
         return None
 
-    return db.getUserChannels(user.id)
+    elif(request_dict["cmd"] == "read"): 
+        request_dict.pop("cmd")
+        return db.queryForDict(request_dict)
 
-def handle_create_channel_request(db : Database, request_dict : dict):
-    """Handles create channel request from client"""
-    channel_name = request_dict["channel_name"]
-    owner = db.getUser(request_dict["username"])
-    if(not owner):
-        print("Warning: Failed to find user with username " + request_dict["username"], file = fp)
+    elif(request_dict["cmd"] == "update"):
+        print("WARNING: 'update' commands not implemented")
         return None
-    
-    #Add channel
-    channel = Channel(channel_name)
-    if(db.insert(channel)): channel = db.getLastChannel()
-    if(not channel or channel.id == None):
-        print("Warning: Failed to create channel with name " + channel_name, file = fp)
+    elif(request_dict["cmd"] == "delete"): 
+        print("WARNING: 'delete' commands not implemented")
         return None
 
-    #Add user-channel membership
-    perms = int("11111111", 2)
-    ownership = Membership(channel.id, owner.id, perms)
-    if(not db.insert(ownership)):
-        print(f'Warning: Failed to add user-channel membership for owner {owner.username} and channel {channel.channel_name}', file = fp)
-        return None
-    
-    return channel
-
-def handle_join_channel_request(db : Database, request_dict : dict):
-    """Handles join channel request from client"""
-    perms = 0
-    if("perms" in request_dict): perms = request_dict["perms"]
-    channel = db.getChannel(request_dict["channelID"])
-    if(not channel):
-        print("Warning: Failed to find channel with id " + request_dict["channelID"], file = fp)
-        return None
-    user = db.getUser(request_dict["username"])
-    if(not user):
-        print("Warning: Failed to find user with username " + request_dict["username"], file = fp)
+    else: 
+        print("WARNING: Invalid command: " + request_dict["cmd"])
         return None
 
-    #Add user-channel membership
-    membership = Membership(channel.id, user.id, perms)
-    if(not db.insert(membership)): return None
-    membership = db.getMembership(channel.id, user.id)
-    if(not membership):
-        print(f'Warning: Failed to add user-channel membership for user {user.username} and channel {channel.channel_name}', file = fp)
-        return None
-
-    return membership
-
-def send_response(conn, response_obj : DatabaseObject | None | DatabaseObjectList):
-        conn.sendall(bytes(str(response_obj), 'utf-8'))
+def send_response(conn, response_obj : DatabaseObject | None | int | DatabaseObjectList):
+        #Format: "<Response_Length>\n<Response>"
+        response_str = str(response_obj)
+        length = len(response_str)
+        response_str = str(length) + "\n" + response_str
+        conn.sendall(bytes(response_str, 'utf-8'))
 
 def main():
     host = sys.argv[1]
@@ -141,8 +73,11 @@ def main():
                 print("Received request: " + api_request.decode('utf-8'), file = fp)
                 
                 request_dict = request_bytes_to_dict(api_request)
-                response_object = handle_request(db, request_dict["type"], request_dict)
-
+                if("cmd" in request_dict and "obj" in request_dict):
+                    response_object = handle_request(db, request_dict)
+                else:
+                    response_object = None
+                    print("Warning: Invalid request: " + str(request_dict), file = fp)
 
                 print("Sending response: " + str(response_object))
                 send_response(conn, response_object)

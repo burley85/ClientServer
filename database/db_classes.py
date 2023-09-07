@@ -1,16 +1,18 @@
 import mysqlx
 from hashlib import sha256
 
-
 class DatabaseObject:
     def __init__(self):
         pass
     def __str__(self):
         return f'{type(self).__name__} = {str(self.__dict__)}'
+    def __eq__(self, other):
+        if(type(self) != type(other)): return False
+        return self.__dict__ == other.__dict__
 
 class DatabaseObjectList:
     def __init__(self, objType : type, objList : list = []):
-        self.objType : type = objType
+        self.objType = objType
         self.list = objList
     
     def __str__(self):
@@ -36,7 +38,7 @@ class User(DatabaseObject):
         self.email = email
         self.fname = fname
         self.lname = lname
-        self.id = id
+        self.id = int(id) if id != None else None
     
     @classmethod
     def fromDict(cls, user_dict : dict):
@@ -51,10 +53,17 @@ class User(DatabaseObject):
         id = user_dict["id"] if "id" in user_dict else None
         return User(username, pword, email, fname, lname, id)
         
+    @classmethod
+    def fromList(cls, user_list):
+        if(len(user_list) != 6):
+            print("WARNING: Failed to create user from list:" + str(user_list))
+            return None
+        return User(user_list[1], user_list[2], user_list[3], user_list[4], user_list[5], user_list[0])
+
 class Channel(DatabaseObject):
     def __init__(self, name, id=None):
         self.channel_name = name
-        self.id = id
+        self.id = int(id) if id != None else None
 
     @classmethod
     def fromDict(cls, channel_dict : dict):
@@ -64,12 +73,19 @@ class Channel(DatabaseObject):
         channel_name = channel_dict["channel_name"]
         id = channel_dict["id"] if "id" in channel_dict else None
         return Channel(channel_name, id)
+    
+    @classmethod
+    def fromList(cls, channel_list):
+        if(len(channel_list) != 2):
+            print("WARNING: Failed to create user from list:" + str(channel_list))
+            return None
+        return Channel(channel_list[1], channel_list[0])
 
 class Membership(DatabaseObject):
     def __init__(self, channel_id, user_id, perm_flags):
-        self.channel_id = channel_id
-        self.user_id = user_id
-        self.perm_flags = perm_flags
+        self.channel_id = int(channel_id)
+        self.user_id = int(user_id)
+        self.perm_flags = int(perm_flags)
 
     @classmethod
     def fromDict(cls, membership_dict):
@@ -81,18 +97,25 @@ class Membership(DatabaseObject):
         user_id = membership_dict["user_id"]
         perm_flags = membership_dict["perm_flags"]
         return Membership(channel_id, user_id, perm_flags)
+    
+    @classmethod
+    def fromList(cls, membership_list):
+        if(len(membership_list) != 3):
+            print("WARNING: Failed to create user from list:" + str(membership_list))
+            return None
+        return Membership(membership_list[0], membership_list[1], membership_list[2])
 
 class Message(DatabaseObject):
     def __init__(self, sender_id, message_text, message_time, id=None):
         self.message_time = message_time
         self.message_text = message_text
-        self.sender_id = sender_id
-        self.id = id
+        self.sender_id = int(sender_id)
+        self.id = int(id) if id != None else None
 
 class DirectMessage (Message):
     def __init__(self, sender_id, receiver_id, message_text, message_time, id=None):
         super().__init__(sender_id, message_text, message_time, id)
-        self.receiver_id = receiver_id
+        self.receiver_id = int(receiver_id)
     
     @classmethod
     def fromDict(cls, message_dict):
@@ -107,10 +130,17 @@ class DirectMessage (Message):
         id = message_dict["id"] if "id" in message_dict else None
         return DirectMessage(sender_id, receiver_id, message_text, message_time, id)
     
+    @classmethod
+    def fromList(cls, message_list):
+        if(len(message_list) != 5):
+            print("WARNING: Failed to create user from list:" + str(message_list))
+            return None
+        return DirectMessage(message_list[0], message_list[1], message_list[2])
+    
 class GroupMessage (Message):
     def __init__(self, sender_id, channel_id, message_text, message_time, id=None):
         super().__init__(sender_id, message_text, message_time, id)
-        self.channel_id = channel_id
+        self.channel_id = int(channel_id)
 
     @classmethod
     def fromDict(cls, message_dict):
@@ -127,10 +157,10 @@ class GroupMessage (Message):
 
 class Invitation(DatabaseObject):
     def __init__(self, sender_id, receiver_id, channel_id, id=None):
-        self.sender_id = sender_id
-        self.receiver_id = receiver_id
-        self.channel_id = channel_id
-        self.id = id
+        self.sender_id = int(sender_id)
+        self.receiver_id = int(receiver_id)
+        self.channel_id = int(channel_id)
+        self.id = int(id) if id != None else None
 
     @classmethod
     def fromDict(cls, invitation_dict):
@@ -184,65 +214,94 @@ class Database:
             command += ",?"
         command += ")"
 
-        return self.execute(command, *objDict.values()).get_affected_items_count() > 0
+        #Execute the command
+        try:
+            result = self.execute(command, *objDict.values())
+            if(result.get_affected_items_count() == 0): raise Exception("No rows affected.")
 
-    def getUser(self, username = None, id = None):
-        """Get a user from the database."""
-        if(username == None and id == None): return None
-
-        if(username != None):
-            command = 'SELECT * FROM User WHERE username = ?'
-            result = self.execute(command, username).fetch_all()
-            
-            if(len(result) != 1): return None
-
-            if(id != None and result[0][0] != id): return None
-            
+        except Exception as e:
+            print(f'ERROR: {e}: Failed to insert object ({obj}) into database.')
+            return None
+        
+        #Retrieve the last inserted object
+        if(hasattr(obj, "id")):
+            #Get id of last inserted object and query for that id
+            id = result.get_autoincrement_value()
+            last_object = self.queryForDict({"obj": type(obj).__name__, "id": id})
+            obj.id = id
         else:
-            command = 'SELECT * FROM User WHERE id = ?'
-            result = self.execute(command, id).fetch_all()
-            
-            if(len(result) != 1): return None
+            #Query for the object that was just inserted
+            objDict["obj"] = type(obj).__name__
+            last_object = self.queryForDict(objDict)
+
+        #Verify that the object retrieved is the same as the one inserted
+        if(type(last_object) == DatabaseObjectList):
+            print(f'ERROR: Multiple objects retrieved from database match object inserted ({obj})')
+            return None
+        if(last_object != obj):
+            print(f'ERROR: Object retrieved from database ({last_object}) does not match object inserted ({obj})')
+            return None
+        return obj
+
+    def queryForDict(self, request_dict : dict) -> DatabaseObjectList | DatabaseObject | None:
+        if("obj" not in request_dict or 
+           request_dict["obj"] not in globals() or
+           globals()[request_dict["obj"]] not in dbObjectsTypes):
+            print("WARNING: Failed to query for dict:" + str(request_dict))
+            return None
         
-        return User(result[0][1], result[0][2], result[0][3], result[0][4], result[0][5], result[0][0])
+        obj_type = globals()[request_dict["obj"]]
+        request_dict.pop("obj")
+
+
+        # TODO: FIX THIS
+        # if "user_id" in request_dict:
+        #     #Depending on the object type, the user_id may be used for a different purpose
+        #     if(obj_type == User): 
+        #         if("id" not in request_dict):
+        #             request_dict["id"] = request_dict.pop("user_id")
+        #     elif(obj_type == Membership): pass
+        #     elif(obj_type == GroupMessage):
+        #         if("sender_id" not in request_dict):
+        #             request_dict["sender_id"] = request_dict.pop("user_id")
+        #     request_dict.pop("user_id")
+
+        command = "SELECT * FROM " + obj_type.__name__
+        values = []
+        if(len(request_dict) > 0):
+            command += " WHERE "
+            for key, value in request_dict.items():
+                command += key + " = ? AND "
+                values.append(value)
+            command = command.removesuffix(" AND ")
+        result = self.execute(command, *values)
+        rows = result.fetch_all()
+        
+        #Create a list of dicts from the result
+        objDictList = []
+        for row in rows:
+            objDict = {}
+            for i in range(len(row._fields)):
+                label = result.columns[i].column_label
+                objDict[label] = row[i]
+            objDictList.append(objDict)
+
+        if(len(rows) == 0): return None
+        if(len(objDictList) == 1): return obj_type.fromDict(objDictList[0])
+        #Create a list of objects from the list of dicts
+        objList = []
+        for objDict in objDictList:
+            objList.append(obj_type.fromDict(objDict))
+        return DatabaseObjectList(obj_type, objList)
+
+dbObjectsTypes = [User, Channel, Membership, DirectMessage, GroupMessage, Invitation]
+
+def databaseObjectFromDict(obj_dict : dict) -> DatabaseObject | None:
+    if("obj" not in obj_dict or
+    obj_dict["obj"] not in globals() or
+    globals()[obj_dict["obj"]] not in dbObjectsTypes):
+        print("WARNING: Failed to create object from dict:" + str(obj_dict))
+        return None
     
-    def getChannel(self, channel_id):
-        """Get a channel from the database."""
-        command = 'SELECT * FROM Channel WHERE id = ?'
-        result = self.execute(command, channel_id).fetch_all()
-        
-        if(len(result) != 1): return None
-        
-        return Channel(result[0][1], result[0][0])
-
-    def getLastChannel(self):
-        """Get the last channel from the database."""
-        command = 'SELECT * FROM Channel ORDER BY id DESC LIMIT 1;'
-        result = self.execute(command).fetch_all()
-        
-        if(len(result) != 1): return None
-        
-        return Channel(result[0][1], result[0][0])
-    
-    def getMembership(self, channel_id, user_id):
-        """Get a membership from the database."""
-        command = 'SELECT * FROM Membership WHERE channel_id = ? AND user_id = ?'
-        result = self.execute(command, channel_id, user_id).fetch_all()
-
-        if(len(result) != 1): return None
-
-        return Membership(result[0][0], result[0][1], result[0][2])
-    
-    def getUserChannels(self, user_id):
-        """Get all channels a user is a member of."""
-        command = 'SELECT * FROM Membership WHERE user_id = ?'
-        result = self.execute(command, user_id).fetch_all()
-
-        channels = DatabaseObjectList(Channel, [])
-
-        for row in result:
-            print("so far: " + str(channels))
-            channel = self.getChannel(row[0])
-            if(channel != None): channels.append(channel)
-        
-        return channels
+    obj_type : type = globals()[obj_dict["obj"]]
+    return obj_type.fromDict(obj_dict)
