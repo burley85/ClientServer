@@ -1,11 +1,42 @@
 <html>
+    <script>  
+        async function createChannel(){
+            //Prevent ChannelCreation form from redirecting
+            event.preventDefault();
+    
+            try{
+                //Get User
+                userRequest = new Request("api/User", {
+                        method: "GET"
+                });
+                response = await fetch(userRequest);
+                user = await response.json();
+                //Post Channel
+                channelRequest = new Request("api/Channel", {
+                   method: "POST",
+                   body: "channel_name=" + document.getElementById("channel_name").value
+                });
+                response = await fetch(channelRequest);
+                channel = await response.json();
+                //Post Membership
+                membershipRequest = new Request("api/Membership", {
+                    method: "POST",
+                    body: "channel_id=" + channel.id + "&user_id=" + user.id + "&perm_flags=255"
+                });
+                response = await fetch(membershipRequest);
+                membership = await response.json();
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+        }
+    </script>
     <body>
         <h1>Create Channel</h1>
-        <form method="post" name="ChannelCreation">
+        <form name="ChannelCreation" action="api/Channel" method="POST" onsubmit="createChannel()">
             <label for="channel_name">Channel Name:</label>
             <input type="text" id="channel_name" name="channel_name" required><br>
             
-            <input type="submit" name = "type" value="createChannel">
+            <input type="submit">
         </form>
     </body>
 </html>

@@ -18,7 +18,7 @@
     </head>
     <body>
         <h1>Register</h1>
-        <form method="post" name="Register">
+        <form method="post" name="Register" action="api/User">
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" required><br>
             
@@ -26,7 +26,7 @@
             <input type="password" id="pword" name="pword" required><br>
             
             <label for="pword2">Reenter password:</label>
-            <input type="password" id="pword2" name="pword2" required><br>
+            <input type="password" id="pword2" required><br>
 
             <label for="email">Email:</label>
             <input type="email" id="email" name="email" required><br>
@@ -37,7 +37,7 @@
             <label for="lname">Last name:</label>
             <input type="text" id="lname" name="lname" required><br>
 
-            <input type="submit" onclick="return encryptPasswords()" name = "type" value="register">
+            <input type="submit" onclick="return encryptPasswords()">
         </form>
         <a href = "login.html">Already have an account? Login here.</a>
     </body>

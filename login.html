@@ -11,13 +11,13 @@
     </head>
     <body>
         <h1>Login</h1>
-        <form method="post">
+        <form method="post" action="login">
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" required><br>
             <label for="pword">Password:</label>
             <input type="password" id="pword" name="pword" required><br>
             
-            <input type="submit" onclick="return encryptPassword()" name = "type" value="login">
+            <input type="submit" onclick="return encryptPassword()">
         </form>
         <a href = "signup.html">Don't have an account? Register here.</a>
     </body>

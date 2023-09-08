@@ -3,7 +3,7 @@
         async function getUser(){
             try{
             //Get User Object from server
-                let userRequest = new Request("api/user", {
+                let userRequest = new Request("api/User", {
                     method: "GET"
                 });
                 response = await fetch(userRequest);
@@ -15,24 +15,31 @@
             }
             return null;
         }
-        async function getChannels(){
+        async function getChannels(user){
             try{
                 //Get Channels from server
-                let channelRequest = new Request("api/channels", {
+                let membershipRequest = new Request("api/Membership?user_id=" + user.id, {
                     method: "GET"
                 });
-                response = await fetch(channelRequest);
-                channels = await response.json();
-                channels = channels.list;
-                console.log(channels);
-                for(let i = 0; i < channels.length; i++){
-                    let channel = channels[i];
+                response = await fetch(membershipRequest);
+                memberships = await response.json();
+                //If memberships has a list of memberships
+                if(memberships.list != null) memberships = memberships.list;
+                else memberships = [memberships];
+                console.log(memberships);
+                for(let i = 0; i < memberships.length; i++){
+                    let membership = memberships[i];
                     let li = document.createElement("li");
                     let a = document.createElement("a");
-                    a.href = "channel.html?channel=" + channel.id;
-                    a.innerHTML = channel.channel_name;
+                    a.href = "channel.html?channel_id=" + membership.channel_id;
                     li.appendChild(a);
                     document.getElementById("channelList").appendChild(li);
+                    channelRequest = new Request("api/Channel?id=" + membership.channel_id, {
+                        method: "GET"
+                    });
+                    response = await fetch(channelRequest);
+                    channel = await response.json();
+                    a.innerHTML = channel.channel_name;
                 }
             } catch (error) {
                 console.error("ERROR:", error);
@@ -40,7 +47,7 @@
         }
         async function load(){
             user = await getUser();
-            if(user != null) getChannels();
+            if(user != null) getChannels(user);
         }
     </script>
     <body onload = "load()">
@@ -53,8 +60,8 @@
         </ul>
         <a href="createChannel.html">Create Channel</a>
         <a href="createDM.html">Direct Message</a>
-        <form id="logout-form" method="post">
-            <button type="submit" name = "type" value="logout">Logout</button>
+        <form id="logout-form" method="post" action="logout">
+            <button type="submit">Logout</button>
         </form>
     </body>
 </html>
