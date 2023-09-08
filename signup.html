@@ -3,16 +3,28 @@
         <title>Register</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script></head>
         <script>
-            function encryptPasswords(){
+            async function encryptPasswords(){
+                event.preventDefault();
                 var pass = document.getElementById('pword').value;
                 var pass2 = document.getElementById('pword2').value;
 
                 if(pass.length == 0) return;
                 if(pass != pass2) return;
 
-                var hash = CryptoJS.MD5(pass);
-                document.getElementById('pword').value=hash;
-                document.getElementById('pword2').value=hash;
+                pword = CryptoJS.MD5(pass);
+                username = document.getElementById('username').value;
+                email = document.getElementById('email').value;
+                fname = document.getElementById('fname').value;
+                lname = document.getElementById('lname').value;
+                
+                userRequest = new Request("api/User", {
+                    method: "POST",
+                    body: "username=" + username + "&pword=" + pword + "&email=" + email + "&fname=" + fname + "&lname=" + lname,
+                });
+                console.log(userRequest);
+                response = await fetch(userRequest);
+                
+                window.location.href = "login.html";
             }
             </script>
     </head>

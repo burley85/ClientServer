@@ -25,6 +25,8 @@
                 });
                 response = await fetch(membershipRequest);
                 membership = await response.json();
+
+                window.location.href = "home.html";
             } catch (error) {
                 console.error("ERROR:", error);
             }

@@ -1,0 +1,43 @@
+<html>
+    <script>
+        async function getUser(){
+            try{
+            //Get User Object from server
+                let userRequest = new Request("api/User", {
+                    method: "GET"
+                });
+                response = await fetch(userRequest);
+                user = await response.json();
+                return user;
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            return null;
+        }
+        async function getChannel(user){
+            try{
+                //Get Channel Object from server
+                channel_id = parseInt(location.search.split('channel_id=')[1]);
+                let channelRequest = new Request("api/Channel?id=" + channel_id, {
+                    method: "GET"
+                });
+                response = await fetch(channelRequest);
+                channel = await response.json();
+                document.getElementById("Heading").innerHTML = channel.channel_name;
+                return channel;
+                
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            return null;
+        }
+        async function load(){
+            channel = await getChannel();
+            user = await getUser();
+        }
+    </script>
+    <body onload = "load()">
+        <h1 id = "Heading"></h1>
+        
+    </body>
+</html>

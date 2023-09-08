@@ -215,8 +215,10 @@ void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request
         return;
     }
 
-    char* file_name = malloc(256);
-    sscanf(request, "GET /%s HTTP/1.1", file_name);
+    char file_name[256];
+    //Ignore query parameters
+    sscanf(request, "GET /%[^? ] HTTP/1.1", file_name);
+    //sscanf(request, "GET /%s HTTP/1.1", file_name);
     print_debug("Client sent GET request for '%s'", file_name);
 
     if (!send_page(client_socket_desc, file_name, "text/html", "200 OK")) {
@@ -312,9 +314,9 @@ void handle_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* req
         handle_api_post_request(API_socket_desc, client_socket_desc, request);
     else if(!strncmp(request, "GET /", 5))
         handle_get(client_socket_desc, API_socket_desc, request);
-    else if(!strncmp(request, "POST /login", 6))
+    else if(!strncmp(request, "POST /login", 11))
         handle_login_request(API_socket_desc, client_socket_desc, request);
-    else if(!strncmp(request, "POST /logout", 6))
+    else if(!strncmp(request, "POST /logout", 12))
         handle_logout_request(client_socket_desc, request);
     else send_400(client_socket_desc);
 }
