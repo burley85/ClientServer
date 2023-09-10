@@ -9,7 +9,7 @@ drop table User, GroupMessage, DirectMessage, Membership, Channel, Invitation;
 CREATE TABLE IF NOT EXISTS User (
     id INT AUTO_INCREMENT,
     PRIMARY KEY(id),
-    username VARCHAR(31) NOT NULL,
+    username VARCHAR(31) NOT NULL UNIQUE,
     pword VARCHAR(32) NOT NULL,
     email VARCHAR(63) NOT NULL,
     fname VARCHAR(31),

@@ -5,17 +5,24 @@
         <script>
             async function encryptPasswords(){
                 event.preventDefault();
-                var pass = document.getElementById('pword').value;
-                var pass2 = document.getElementById('pword2').value;
 
-                if(pass.length == 0) return;
-                if(pass != pass2) return;
+                var pword = document.getElementById('pword').value;
+                if(pword != document.getElementById('pword2').value){
+                    alert("Passwords do not match");
+                    return;
+                }
 
-                pword = CryptoJS.MD5(pass);
                 username = document.getElementById('username').value;
                 email = document.getElementById('email').value;
                 fname = document.getElementById('fname').value;
                 lname = document.getElementById('lname').value;
+                if(pword.length == 0 || username.length == 0 || email.length == 0 || fname.length == 0 || lname.length == 0){
+                    alert("Please fill out all fields");
+                    return;
+                }
+
+                pword = CryptoJS.MD5(pword);
+
                 
                 userRequest = new Request("api/User", {
                     method: "POST",
@@ -23,8 +30,8 @@
                 });
                 console.log(userRequest);
                 response = await fetch(userRequest);
-                
-                window.location.href = "login.html";
+                if(response.status < 400) window.location.href = "login.html";
+                else alert("Username already taken");
             }
             </script>
     </head>
