@@ -1,3 +1,4 @@
+import datetime
 import mysqlx
 from hashlib import sha256
 
@@ -106,14 +107,14 @@ class Membership(DatabaseObject):
         return Membership(membership_list[0], membership_list[1], membership_list[2])
 
 class Message(DatabaseObject):
-    def __init__(self, sender_id, message_text, message_time, id=None):
+    def __init__(self, sender_id, message_text, message_time = None, id=None):
         self.message_time = message_time
         self.message_text = message_text
         self.sender_id = int(sender_id)
         self.id = int(id) if id != None else None
 
 class DirectMessage (Message):
-    def __init__(self, sender_id, receiver_id, message_text, message_time, id=None):
+    def __init__(self, sender_id, receiver_id, message_text, message_time = None, id=None):
         super().__init__(sender_id, message_text, message_time, id)
         self.receiver_id = int(receiver_id)
     
@@ -138,20 +139,20 @@ class DirectMessage (Message):
         return DirectMessage(message_list[0], message_list[1], message_list[2])
     
 class GroupMessage (Message):
-    def __init__(self, sender_id, channel_id, message_text, message_time, id=None):
+    def __init__(self, sender_id, channel_id, message_text, message_time = None, id=None):
         super().__init__(sender_id, message_text, message_time, id)
         self.channel_id = int(channel_id)
 
     @classmethod
     def fromDict(cls, message_dict):
         if("sender_id" not in message_dict or "channel_id" not in message_dict
-        or "message_text" not in message_dict or "message_time" not in message_dict):
+        or "message_text" not in message_dict):
             print("WARNING: Failed to create group message from dict:" + str(message_dict))
             return None
         sender_id = message_dict["sender_id"]
         channel_id = message_dict["channel_id"]
         message_text = message_dict["message_text"]
-        message_time = message_dict["message_time"]
+        message_time = message_dict["message_time"] if "message_time" in message_dict else None
         id = message_dict["id"] if "id" in message_dict else None
         return GroupMessage(sender_id, channel_id, message_text, message_time, id)
 
@@ -195,6 +196,7 @@ class Database:
 
         print(stmt.sql)
         print(args)
+        s = ""
         return stmt.execute()
 
     def disconnect(self):
@@ -238,9 +240,11 @@ class Database:
         if(type(last_object) == DatabaseObjectList):
             print(f'ERROR: Multiple objects retrieved from database match object inserted ({obj})')
             return None
-        if(last_object != obj):
-            print(f'ERROR: Object retrieved from database ({last_object}) does not match object inserted ({obj})')
-            return None
+        #Compare all non-None attributes of the object inserted to the object retrieved
+        for key, value in obj.__dict__.items():
+            if(value != None and value != last_object.__dict__[key]):
+                print(f'ERROR: Object retrieved from database ({last_object}) does not match object inserted ({obj})')
+                return None
         return obj
 
     def queryForDict(self, request_dict : dict) -> DatabaseObjectList | DatabaseObject | None:
@@ -252,19 +256,6 @@ class Database:
         
         obj_type = globals()[request_dict["obj"]]
         request_dict.pop("obj")
-
-
-        # TODO: FIX THIS
-        # if "user_id" in request_dict:
-        #     #Depending on the object type, the user_id may be used for a different purpose
-        #     if(obj_type == User): 
-        #         if("id" not in request_dict):
-        #             request_dict["id"] = request_dict.pop("user_id")
-        #     elif(obj_type == Membership): pass
-        #     elif(obj_type == GroupMessage):
-        #         if("sender_id" not in request_dict):
-        #             request_dict["sender_id"] = request_dict.pop("user_id")
-        #     request_dict.pop("user_id")
 
         command = "SELECT * FROM " + obj_type.__name__
         values = []
@@ -283,7 +274,7 @@ class Database:
             objDict = {}
             for i in range(len(row._fields)):
                 label = result.columns[i].column_label
-                objDict[label] = row[i]
+                objDict[label] = str(row[i])
             objDictList.append(objDict)
 
         if(len(rows) == 0): return None

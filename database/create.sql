@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS Membership (
 CREATE TABLE IF NOT EXISTS DirectMessage (
     id INT AUTO_INCREMENT,
     PRIMARY KEY(id),
-    message_time TIMESTAMP NOT NULL,
+    message_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,
     message_text VARCHAR(255) NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS DirectMessage (
 CREATE TABLE IF NOT EXISTS GroupMessage (
     id INT AUTO_INCREMENT,
     PRIMARY KEY(id),
-    message_time TIMESTAMP NOT NULL,
+    message_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sender_id INT NOT NULL,
     channel_id INT NOT NULL,
     message_text VARCHAR(255) NOT NULL,

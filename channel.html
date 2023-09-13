@@ -1,5 +1,6 @@
 <html>
     <script>
+        user = null;
         async function getUser(){
             try{
             //Get User Object from server
@@ -7,8 +8,7 @@
                     method: "GET"
                 });
                 response = await fetch(userRequest);
-                user = await response.json();
-                return user;
+                return await response.json();
             } catch (error) {
                 console.error("ERROR:", error);
             }
@@ -22,10 +22,22 @@
                     method: "GET"
                 });
                 response = await fetch(channelRequest);
-                channel = await response.json();
-                document.getElementById("Heading").innerHTML = channel.channel_name;
-                return channel;
-                
+                return await response.json();                
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            return null;
+        }
+        async function getMessages(channel){
+            try{
+            //Get Messages list from server
+                let messagesRequest = new Request("api/GroupMessage?channel_id=" + channel.id, {
+                    method: "GET"
+                });
+                response = await fetch(messagesRequest);
+                messages = await response.json();
+                if(messages.list != null) return messages.list;
+                else return [messages];
             } catch (error) {
                 console.error("ERROR:", error);
             }
@@ -33,11 +45,48 @@
         }
         async function load(){
             channel = await getChannel();
-            user = await getUser();
+            if(channel == null) return;
+            document.getElementById("Heading").innerHTML = channel.channel_name;
+
+            user = await getUser(); 
+            if(user == null) return;
+
+            messages = await getMessages(channel);
+            if(messages == null) return;
+            for(let i = 0; i < messages.length; i++){
+                let message = messages[i];
+                let li = document.createElement("li");
+                li.innerHTML = message.message_text;
+                document.getElementById("messages").appendChild(li);
+            }            
+        }
+        async function submitMessage(){
+            event.preventDefault();
+            try{
+                sender_id = user.id;
+                channel_id = parseInt(location.search.split('channel_id=')[1]);
+                message_text = document.getElementById("message").value;
+                let messageRequest = new Request("api/GroupMessage", {
+                    method: "POST",
+                    body: "sender_id=" + sender_id + "&channel_id=" + channel_id + "&message_text=" + message_text
+                });
+                response = await fetch(messageRequest);
+                location.reload();
+            }
+            catch(error){
+                console.error("ERROR:", error);
+            }
         }
     </script>
     <body onload = "load()">
         <h1 id = "Heading"></h1>
-        
+        <h2>Messages</h2>
+        <ul id = "messages" style="list-style-type: none;" margin>
+        </ul>
+        <form method="post" name="Message" action="api/GroupMessage">
+            <label for="message">Message:</label>
+            <input type="text" id="message" name="message_text" required><br>
+            <input type="submit" onclick="return submitMessage()">
+        </form>
     </body>
 </html>
