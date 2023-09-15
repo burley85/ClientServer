@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS DirectMessage (
     message_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,
-    message_text VARCHAR(255) NOT NULL,
+    message_text VARCHAR(2047) NOT NULL,
     FOREIGN KEY(sender_id) REFERENCES User(id),
     FOREIGN KEY(receiver_id) REFERENCES User(id)
 );
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS GroupMessage (
     message_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sender_id INT NOT NULL,
     channel_id INT NOT NULL,
-    message_text VARCHAR(255) NOT NULL,
+    message_text VARCHAR(2047) NOT NULL,
     FOREIGN KEY(sender_id) REFERENCES User(id),
     FOREIGN KEY(channel_id) REFERENCES Channel(id)
 );

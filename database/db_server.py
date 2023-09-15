@@ -45,7 +45,7 @@ def handle_request(db : Database, request_dict : dict) -> DatabaseObject | None 
         print("WARNING: Invalid command: " + request_dict["cmd"])
         return None
 
-def send_response(conn, response_obj : DatabaseObject | None | int | DatabaseObjectList):
+def send_response(conn : socket.socket, response_obj : DatabaseObject | None | int | DatabaseObjectList):
         #Format: "<Response_Length>\n<Response>"
         response_str = str(response_obj)
         length = len(response_str)
@@ -67,7 +67,7 @@ def main():
         with conn:
             print(f"Connected by {addr}")
             while True:
-                api_request = conn.recv(1024)
+                api_request = conn.recv(1048576)
                 if not api_request:
                     break
                 print("Received request: " + api_request.decode('utf-8'), file = fp)

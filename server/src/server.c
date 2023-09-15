@@ -47,22 +47,102 @@ void parse_argv(int argc, char** argv) {
     }
 }
 
-void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc){
-    while(1){
-        // Get client's request
-        char client_request[1024] = "";
-        print_debug("Getting client request...");
+//Returns the client's request as a dynamically allocated string
+//The returned string may also contain part of the response body
+char* get_client_request_header(SOCKET client_socket_desc, int* bytes_read){
+    int response_max_length = 256;
+    float length_factor = 1.5;
 
-        int rval = recv(client_socket_desc, client_request, sizeof(client_request), 0);
+    char* response = malloc(response_max_length);
+    if(response == NULL){
+        print_error("Failed to allocate memory for response");
+        return NULL;
+    }
+    memset(response, 0, response_max_length);
+
+    //Receive the response until "\r\n\r\n" is found
+    while(strstr(response, "\r\n\r\n") == NULL){
+        //Receive the response
+        int rval = recv(client_socket_desc, response + *bytes_read, response_max_length - *bytes_read, 0);
         if (rval == SOCKET_ERROR) {
             print_error("recv() failed");
-            return;
+            free(response);
+            return NULL;
         }
         else if (rval == 0) {
             print_debug("Client disconnected");
-            return;
+            free(response);
+            return "\0";
         }
-        print_debug("Client request: %s", client_request);
+        *bytes_read += rval;
+
+        //Reallocate memory if necessary
+        if(*bytes_read == response_max_length){
+            print_debug("Reallocating memory for response header. Increasing size from %d to %d", response_max_length, (int) (response_max_length * length_factor));
+            char* temp = realloc(response, response_max_length * length_factor);
+            if(temp == NULL){
+                print_error("Failed to reallocate memory for response");
+                free(response);
+                return NULL;
+            }
+            response = temp;
+            //Set all of the new memory to 0
+            memset(response + response_max_length, 0, (response_max_length * length_factor) - response_max_length);
+            response_max_length *= length_factor;
+        }
+    }
+    print_debug("Client request header: %s", response);
+    return response;
+}
+
+char* get_client_request(SOCKET client_socket_desc){
+    int bytes_read = 0;
+    char* request_header = get_client_request_header(client_socket_desc, &bytes_read);
+    
+    //Realloc the response to include the body
+    char* body_start = strstr(request_header, "\r\n\r\n") + 4;
+    int header_length = body_start - request_header;
+    char* content_length_header = strstr(request_header, "Content-Length: ");
+    if(content_length_header == NULL){
+        print_warning("Content-Length header not found"); //TODO: Send Content-Length required response
+        return request_header;
+    }
+    int content_length = atoi(content_length_header + 16);
+    int response_length = header_length + content_length;
+    char* response = realloc(request_header, response_length + 1);
+    if(response == NULL){
+        print_error("Failed to allocate memory for response");
+        free(request_header);
+        return NULL;
+    }
+
+    while(bytes_read < response_length){
+        int rval = recv(client_socket_desc, response + bytes_read, response_length - bytes_read, 0);
+        if (rval == SOCKET_ERROR) {
+            print_error("recv() failed");
+            free(response);
+            return NULL;
+        }
+        else if (rval == 0) {
+            print_debug("Client disconnected");
+            free(response);
+            return "\0";
+        }
+        bytes_read += rval;
+    }
+
+    response[response_length] = '\0';
+    print_debug("Client request body: %s", strstr(response, "\r\n\r\n") + 4);
+    return response;
+}
+
+void serve_client(SOCKET client_socket_desc, SOCKET API_socket_desc){
+    while(1){
+        // Get client's request
+        char* client_request = get_client_request(client_socket_desc);
+        
+        if(client_request == NULL || client_request[0] == '\0') return;
+ 
         handle_request(API_socket_desc, client_socket_desc, client_request);
     }
 }

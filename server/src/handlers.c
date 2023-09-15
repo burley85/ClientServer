@@ -54,14 +54,15 @@ char* API_recv(SOCKET API_socket_desc){
     memset(response, 0, len + 1);
     sprintf(response, "%s", response_start);
     
-    int bytes_read = strlen(response_start);
+    long bytes_read = strlen(response_start);
     while(bytes_read < len){
-        if(recv(API_socket_desc, response + bytes_read, len - bytes_read, 0) == SOCKET_ERROR){
+        int rval = recv(API_socket_desc, response + bytes_read, len - bytes_read, 0);
+        if(rval == SOCKET_ERROR){
             print_error("Failed to receive API response");
             free(response);
             return NULL;
         }
-        bytes_read += strlen(response + bytes_read);
+        bytes_read += rval;
     }
 
     //Replace all ' with " unless preceded by '\'
@@ -87,7 +88,7 @@ char* create_api_request(char* http_request){
     };
     char http_cmd[8] = "";
     char obj[32] = "";
-    char parameters[512] = "";
+    char parameters[4096] = "";
     int parameters_len = 0;
 
     sscanf(http_request, "%7s /api/%[a-zA-Z]31s", http_cmd, obj);
@@ -133,9 +134,10 @@ char* create_api_request(char* http_request){
         }
     }
 
-    char* api_request = malloc(600);
+    int api_request_len = strlen("cmd=") + strlen(api_cmd) + strlen("&obj=") + strlen(obj) + parameters_len;
+    char* api_request = malloc(api_request_len + 1);
     sprintf(api_request, "cmd=%s&obj=%s%s", api_cmd, obj, parameters);
-
+    api_request[api_request_len] = '\0';
     return api_request;
 }
 
@@ -149,6 +151,7 @@ void handle_api_get_request(SOCKET API_socket_desc, SOCKET client_socket_desc, c
         send_500(client_socket_desc);
         return;
     }
+    free(api_request);
 
     char* api_response = API_recv(API_socket_desc);
     if(api_response == NULL){

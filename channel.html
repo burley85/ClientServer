@@ -66,11 +66,17 @@
                 sender_id = user.id;
                 channel_id = parseInt(location.search.split('channel_id=')[1]);
                 message_text = document.getElementById("message").value;
-                let messageRequest = new Request("api/GroupMessage", {
-                    method: "POST",
-                    body: "sender_id=" + sender_id + "&channel_id=" + channel_id + "&message_text=" + message_text
-                });
-                response = await fetch(messageRequest);
+                //Break the message into 2000 character chunks
+                while(message_text.length > 0){
+                    let messageRequest = new Request("api/GroupMessage", {
+                        method: "POST",
+                        body: "sender_id=" + sender_id + "&channel_id=" + channel_id + "&message_text=" + message_text.substring(0, 2000)
+                    });
+                    console.log(messageRequest);
+                    console.log(message_text.substring(0, 2000));
+                    response = await fetch(messageRequest);
+                    message_text = message_text.substring(2000);
+                }
                 location.reload();
             }
             catch(error){
