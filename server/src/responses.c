@@ -142,6 +142,18 @@ void send_404(SOCKET client_socket_desc) {
     }
 }
 
+void send_406(SOCKET client_socket_desc) {
+    const char* error_msg =
+        "HTTP/1.1 406 Not Acceptable\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+    print_debug("Sending header: %s", error_msg);
+    if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
+        print_error("Failed to send 404 Not Found");
+    }
+}
+
 void send_500(SOCKET client_socket_desc){
     const char* error_msg =
         "HTTP/1.1 500 Internal Server Error\r\n"

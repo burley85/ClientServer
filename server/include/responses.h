@@ -12,6 +12,7 @@ void send_302(SOCKET client_socket_desc, char* redirect, char *token);
 void send_303(SOCKET client_socket_desc, char* redirect);
 void send_400(SOCKET client_socket_desc);
 void send_404(SOCKET client_socket_desc);
+void send_406(SOCKET client_socket_desc);
 void send_500(SOCKET client_socket_desc);
 void send_501(SOCKET client_socket_desc);
 void send_obj_json(SOCKET client_socket_desc, char* obj_json);

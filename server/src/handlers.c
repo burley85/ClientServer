@@ -211,6 +211,25 @@ void handle_api_post_request(SOCKET API_socket_desc, SOCKET client_socket_desc, 
 void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request){
     char* root = "login.html";
 
+    //If session token is valid, use home.html as root
+    if(get_session(request) != NULL) root = "home.html";
+
+    //If request does not accept text/html, send 406 Not Acceptable
+    char* accept_header = strstr(request, "Accept:");
+    char* end_of_accept_header = strstr(accept_header, "\r\n");
+    char* substr = strstr(accept_header, "text/html");
+    if(substr == NULL || substr > end_of_accept_header){
+        substr = strstr(accept_header, "text/*");
+        if(substr == NULL || substr > end_of_accept_header){
+            substr = strstr(accept_header, "*/*");
+            if(substr == NULL || substr > end_of_accept_header){
+                print_warning("Client does not accept text/html");
+                send_406(client_socket_desc);
+                return;
+            }
+        }
+    }
+
     // Check if client sent GET request for root
     if (strstr(request, "GET / HTTP/1.1") == request) {
         print_debug("Client sent GET request for root");
@@ -221,8 +240,12 @@ void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request
     char file_name[256];
     //Ignore query parameters
     sscanf(request, "GET /%[^? ] HTTP/1.1", file_name);
-    //sscanf(request, "GET /%s HTTP/1.1", file_name);
     print_debug("Client sent GET request for '%s'", file_name);
+
+    //If file name does not have an extension, append .html
+    if(strstr(file_name, ".") == NULL){
+        strcat(file_name, ".html");
+    }
 
     if (!send_page(client_socket_desc, file_name, "text/html", "200 OK")) {
         print_debug("Could not send page '%s'", file_name);
