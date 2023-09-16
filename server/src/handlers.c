@@ -209,11 +209,6 @@ void handle_api_post_request(SOCKET API_socket_desc, SOCKET client_socket_desc, 
 }
 
 void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request){
-    char* root = "login.html";
-
-    //If session token is valid, use home.html as root
-    if(get_session(request) != NULL) root = "home.html";
-
     //If request does not accept text/html, send 406 Not Acceptable
     char* accept_header = strstr(request, "Accept:");
     char* end_of_accept_header = strstr(accept_header, "\r\n");
@@ -230,27 +225,33 @@ void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request
         }
     }
 
-    // Check if client sent GET request for root
-    if (strstr(request, "GET / HTTP/1.1") == request) {
-        print_debug("Client sent GET request for root");
-        send_page(client_socket_desc, root, "text/html", "200 OK");
-        return;
+    char* root_directory = "public/";
+    char* file_name = malloc(256); //Default file name
+    memset(file_name, 0, 256);
+
+    // Check if client sent GET request for specific file
+    if (strstr(request, "GET / HTTP/1.1") != request) {
+        strcat(file_name, root_directory);
+        //Ignore query parameters
+        sscanf(request, "GET /%[^? ] HTTP/1.1", file_name + strlen(root_directory));
+        print_debug("Client sent GET request for '%s'", file_name);
+
+        //If file name does not have an extension, append .html
+        if(strstr(file_name, ".") == NULL){
+            strcat(file_name, ".html");
+        }
     }
 
-    char file_name[256];
-    //Ignore query parameters
-    sscanf(request, "GET /%[^? ] HTTP/1.1", file_name);
-    print_debug("Client sent GET request for '%s'", file_name);
-
-    //If file name does not have an extension, append .html
-    if(strstr(file_name, ".") == NULL){
-        strcat(file_name, ".html");
+    else{
+        if(get_session(request) == NULL) sprintf(file_name, "%slogin.html", root_directory);
+        else sprintf(file_name, "%shome.html", root_directory);
     }
 
     if (!send_page(client_socket_desc, file_name, "text/html", "200 OK")) {
         print_debug("Could not send page '%s'", file_name);
         send_404(client_socket_desc);
-    }    
+    }
+    free(file_name);
 }
 
 // Returns session token
