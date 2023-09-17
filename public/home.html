@@ -31,7 +31,7 @@
                     let membership = memberships[i];
                     let li = document.createElement("li");
                     let a = document.createElement("a");
-                    a.href = "channel.html?channel_id=" + membership.channel_id;
+                    a.href = "channel?channel_id=" + membership.channel_id;
                     li.appendChild(a);
                     document.getElementById("channelList").appendChild(li);
                     channelRequest = new Request("api/Channel?id=" + membership.channel_id, {
@@ -58,8 +58,8 @@
         <h2>Direct Messages</h2>
         <ul id = "DMList">
         </ul>
-        <a href="createChannel.html">Create Channel</a>
-        <a href="createDM.html">Direct Message</a>
+        <a href="createChannel">Create Channel</a>
+        <a href="createDM">Direct Message</a>
         <form id="logout-form" method="post" action="logout">
             <button type="submit">Logout</button>
         </form>

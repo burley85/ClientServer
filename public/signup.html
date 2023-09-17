@@ -30,7 +30,7 @@
                 });
                 console.log(userRequest);
                 response = await fetch(userRequest);
-                if(response.status < 400) window.location.href = "login.html";
+                if(response.status < 400) window.location.href = "login";
                 else alert("Username already taken");
             }
             </script>
@@ -58,6 +58,6 @@
 
             <input type="submit" onclick="return encryptPasswords()">
         </form>
-        <a href = "login.html">Already have an account? Login here.</a>
+        <a href = "login">Already have an account? Login here.</a>
     </body>
 </html>

@@ -55,9 +55,14 @@
             if(messages == null) return;
             for(let i = 0; i < messages.length; i++){
                 let message = messages[i];
-                let li = document.createElement("li");
-                li.innerHTML = message.message_text;
-                document.getElementById("messages").appendChild(li);
+                
+                let h3 = document.createElement("h3");
+                h3.innerHTML = message.sender_id;
+                document.getElementById("messages").appendChild(h3);
+
+                let div = document.createElement("div");
+                div.innerHTML = message.message_text;
+                document.getElementById("messages").appendChild(div);
             }            
         }
         async function submitMessage(){
@@ -87,8 +92,8 @@
     <body onload = "load()">
         <h1 id = "Heading"></h1>
         <h2>Messages</h2>
-        <ul id = "messages" style="list-style-type: none;" margin>
-        </ul>
+        <div id = "messages" style="list-style-type: none;">
+        </div>
         <form method="post" name="Message" action="api/GroupMessage">
             <label for="message">Message:</label>
             <input type="text" id="message" name="message_text" required><br>
