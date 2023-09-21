@@ -18,10 +18,18 @@ int send_all(SOCKET client_socket_desc, const char* buffer, int buffer_len, int 
 }
 
 int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, char* response_code) {
+    char* root_directory = "public/";
+
+    // Add public directory to filepath and extension to filepath (if needed)
+    char* temp = filepath;
+    filepath = malloc(strlen(filepath) + strlen(root_directory) + strlen(".html") + 1);
+    sprintf(filepath, "%s%s%s", root_directory, temp, strstr(temp, ".") == NULL ? ".html" : "");
+
     // Open file
     FILE* fp = fopen(filepath, "r");
     if (fp == NULL) {
         print_warning("Could not open file '%s'", filepath);
+        free(filepath);
         return 0;
     }
 
@@ -42,6 +50,7 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, cha
     if(!send_all(client_socket_desc, header, strlen(header), 0)){
         print_error("Failed to send header for file '%s'", filepath);
         fclose(fp);
+        free(filepath);
         return 0;
     }
 
@@ -57,6 +66,7 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, cha
         if(!send_all(client_socket_desc, buffer, strlen(buffer), 0)){
             print_error("Failed to send file '%s'", filepath);
             fclose(fp);
+            free(filepath);
             return 0;
         }
 
@@ -64,6 +74,7 @@ int send_page(SOCKET client_socket_desc, char* filepath, char* content_type, cha
     }
     fclose(fp);
     print_debug("Sent file '%s'", filepath);
+    free(filepath);
     return 1;
 }
 

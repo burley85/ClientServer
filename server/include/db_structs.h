@@ -4,7 +4,6 @@
 typedef struct {
     int id;
     char username[32];
-    char pword[33];
     char email[64];
     char fname[32];
     char lname[32];

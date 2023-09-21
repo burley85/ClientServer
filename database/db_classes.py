@@ -1,6 +1,7 @@
 import datetime
 import mysqlx
 from hashlib import sha256
+import random
 
 class DatabaseObject:
     def __init__(self):
@@ -33,9 +34,8 @@ class DatabaseObjectList:
         return True
     
 class User(DatabaseObject):
-    def __init__(self, username, pword, email=None, fname=None, lname=None, id=None):
+    def __init__(self, username, email=None, fname=None, lname=None, id=None):
         self.username = username
-        self.pword = pword
         self.email = email
         self.fname = fname
         self.lname = lname
@@ -43,23 +43,45 @@ class User(DatabaseObject):
     
     @classmethod
     def fromDict(cls, user_dict : dict):
-        if("username" not in user_dict or "pword" not in user_dict):
+        if("username" not in user_dict not in user_dict):
             print("WARNING: Failed to create user from dict:" + str(user_dict))
             return None
         username = user_dict["username"]
-        pword = user_dict["pword"]
         email = user_dict["email"] if "email" in user_dict else None
         fname = user_dict["fname"] if "fname" in user_dict else None
         lname = user_dict["lname"] if "lname" in user_dict else None
         id = user_dict["id"] if "id" in user_dict else None
-        return User(username, pword, email, fname, lname, id)
+        return User(username, email, fname, lname, id)
         
     @classmethod
     def fromList(cls, user_list):
-        if(len(user_list) != 6):
+        if(len(user_list) != 5):
             print("WARNING: Failed to create user from list:" + str(user_list))
             return None
-        return User(user_list[1], user_list[2], user_list[3], user_list[4], user_list[5], user_list[0])
+        return User(user_list[1], user_list[2], user_list[3], user_list[4], user_list[0])
+
+class Credentials(DatabaseObject):
+    def __init__(self, user_id, pword, salt = None):
+        self.user_id = int(user_id)
+        self.pword = pword
+        self.salt = salt
+    
+    @classmethod
+    def fromDict(cls, credentials_dict : dict):
+        if("user_id" not in credentials_dict or "pword" not in credentials_dict):
+            print("WARNING: Failed to create credentials from dict:" + str(credentials_dict))
+            return None
+        user_id = credentials_dict["user_id"]
+        pword = credentials_dict["pword"]
+        salt = credentials_dict["salt"] if "salt" in credentials_dict else None
+        return Credentials(user_id, pword, salt)
+    
+    @classmethod
+    def fromList(cls, credentials_list):
+        if(len(credentials_list) != 3):
+            print("WARNING: Failed to create user from list:" + str(credentials_list))
+            return None
+        return Credentials(credentials_list[0], credentials_list[1], credentials_list[2])
 
 class Channel(DatabaseObject):
     def __init__(self, name, id=None):
@@ -205,6 +227,14 @@ class Database:
 
     def insert(self, obj : DatabaseObject):
         """Add an object to the database."""
+
+        #If object is a Credentials, salt and hash the password
+        if(type(obj) == Credentials and obj.salt == None):
+            obj.salt = ""
+            letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            for i in range(32): obj.salt += random.choice(letters)
+            obj.pword = sha256((obj.pword + obj.salt).encode()).hexdigest()
+
         objDict = {}
         for key, value in obj.__dict__.items():
             if(value != None): objDict[key] = value
@@ -254,6 +284,29 @@ class Database:
             print("WARNING: Failed to query for dict:" + str(request_dict))
             return None
         
+        #Special case for Credentials
+        if(request_dict["obj"] == "Credentials"):
+            if("user_id" not in request_dict or "pword" not in request_dict):
+                print("WARNING: Failed to query for dict:" + str(request_dict))
+                return None
+
+            #Get the credentials from the database using the user_id
+            command = "SELECT * FROM Credentials WHERE user_id = ?"
+            result = self.execute(command, request_dict["user_id"]).fetch_all()
+            if(len(result) == 0):
+                print("WARNING: No credentials found for user_id: " + request_dict["user_id"])
+                return None
+            if(len(result) > 1):
+                print("ERROR: Multiple credentials found for user_id: " + request_dict["user_id"])
+                return None
+            #Verify that the password matches after salting and hashing
+            result = result[0]
+            creds = Credentials(result[0], result[1], result[2])
+            if(sha256((request_dict["pword"] + creds.salt).encode()).hexdigest() != creds.pword):
+                print("WARNING: Incorrect password for user_id: " + request_dict["user_id"])
+                return None
+            return creds\
+
         obj_type = globals()[request_dict["obj"]]
         request_dict.pop("obj")
 
@@ -285,7 +338,7 @@ class Database:
             objList.append(obj_type.fromDict(objDict))
         return DatabaseObjectList(obj_type, objList)
 
-dbObjectsTypes = [User, Channel, Membership, DirectMessage, GroupMessage, Invitation]
+dbObjectsTypes = [User, Channel, Membership, DirectMessage, GroupMessage, Invitation, Credentials]
 
 def databaseObjectFromDict(obj_dict : dict) -> DatabaseObject | None:
     if("obj" not in obj_dict or

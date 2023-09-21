@@ -224,27 +224,20 @@ void handle_get(SOCKET client_socket_desc, SOCKET API_socket_desc, char* request
             }
         }
     }
-
-    char* root_directory = "public/";
+    
     char* file_name = malloc(256); //Default file name
     memset(file_name, 0, 256);
 
     // Check if client sent GET request for specific file
     if (strstr(request, "GET / HTTP/1.1") != request) {
-        strcat(file_name, root_directory);
         //Ignore query parameters
-        sscanf(request, "GET /%[^? ] HTTP/1.1", file_name + strlen(root_directory));
+        sscanf(request, "GET /%[^? ] HTTP/1.1", file_name);
         print_debug("Client sent GET request for '%s'", file_name);
-
-        //If file name does not have an extension, append .html
-        if(strstr(file_name, ".") == NULL){
-            strcat(file_name, ".html");
-        }
     }
 
     else{
-        if(get_session(request) == NULL) sprintf(file_name, "%slogin.html", root_directory);
-        else sprintf(file_name, "%shome.html", root_directory);
+        if(get_session(request) == NULL) sprintf(file_name, "login.html");
+        else sprintf(file_name, "home.html");
     }
 
     if (!send_page(client_socket_desc, file_name, "text/html", "200 OK")) {
@@ -281,14 +274,14 @@ char* create_session(User *user){
 
 //Send 302 Found if user was logged in successfully
 //Send 400 Bad Request if login failed
-void handle_login_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){
+void handle_login_request2(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){
     char *http_request_body = strstr(request, "\r\n\r\n");
     if(http_request_body == NULL){
         print_error("Could not find request body");
         send_400(client_socket_desc);
         return;
     }
-    
+
     char api_request[128] = "";
     sprintf(api_request, "cmd=read&obj=User&%s", http_request_body + 4);
     if(!send_all(API_socket_desc, api_request, strlen(api_request), 0)){
@@ -311,6 +304,79 @@ void handle_login_request(SOCKET API_socket_desc, SOCKET client_socket_desc, cha
     if(u == NULL){
         print_warning("Invalid username or password");
         send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized");
+    }
+    else{
+        char* token = create_session(u);
+        send_302(client_socket_desc, "home.html", token);
+    }
+    free(api_response);
+}
+
+//Send 302 Found if user was logged in successfully
+//Send 400 Bad Request if login failed
+void handle_login_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){
+    char *http_request_body = strstr(request, "\r\n\r\n");
+    if(http_request_body == NULL){
+        print_error("Could not find request body");
+        send_400(client_socket_desc);
+        return;
+    }
+
+    char* username_ptr = strstr(http_request_body, "username=");
+    char* password_ptr = strstr(http_request_body, "pword=");
+    if(username_ptr == NULL || password_ptr == NULL){
+        print_error("Could not find username or password in request body");
+        send_400(client_socket_desc);
+        return;
+    }
+    char username[32] = "";
+    char password[33] = "";
+    sscanf(username_ptr + strlen("username="), "%31[^&]", username);
+    sscanf(password_ptr + strlen("pword="), "%32[^&]", password);
+
+    //Check if user exists with given username
+    char api_request[128] = "";
+    sprintf(api_request, "cmd=read&obj=User&username=%s", username);
+    if(!send_all(API_socket_desc, api_request, strlen(api_request), 0)){
+        print_error("Failed to send API request");
+        send_500(client_socket_desc);
+        return;
+    }
+
+    char* api_response = API_recv(API_socket_desc);
+    if(api_response == NULL){
+        send_500(client_socket_desc);
+        return;
+    }
+    print_debug("Received API response: %s\n", api_response);
+
+    if(strstr(api_response, "User") != api_response){
+        print_warning("Invalid username or password");
+        send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized");
+        return;
+    }
+
+    User* u = (User*) strToDatabaseObject(api_response);
+    free(api_response);
+
+    //Check if password is correct
+    sprintf(api_request, "cmd=read&obj=Credentials&user_id=%d&pword=%s", u->id, password);
+    if(!send_all(API_socket_desc, api_request, strlen(api_request), 0)){
+        print_error("Failed to send API request");
+        send_500(client_socket_desc);
+        return;
+    }
+
+    api_response = API_recv(API_socket_desc);
+    if(api_response == NULL){
+        send_500(client_socket_desc);
+        return;
+    }
+    print_debug("Received API response: %s\n", api_response);
+
+    if(strstr(api_response, "Credentials") != api_response){
+        print_warning("Invalid username or password");
+        send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized"); 
     }
     else{
         char* token = create_session(u);

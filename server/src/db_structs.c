@@ -74,7 +74,6 @@ User* strToUser(char *str){
     user->id = searchJsonForInt(str, "id");
 
     if(searchJsonForStr(str, "username", user->username) == NULL ||
-            searchJsonForStr(str, "pword", user->pword) == NULL ||
             searchJsonForStr(str, "email", user->email) == NULL ||
             searchJsonForStr(str, "fname", user->fname) == NULL ||
             searchJsonForStr(str, "lname", user->lname) == NULL ||
@@ -94,12 +93,12 @@ User* strToUser(char *str){
 char* userToStr(User user){
     char* str = malloc(512);
     sprintf(str,
-            "{\"username\": \"%s\", \"pword\": \"%s\", "
-            "\"email\": \"%s\", \"fname\": \"%s\", "
-            "\"lname\": \"%s\", \"id\": \"%d\"}",
-            user.username, user.pword,
-            user.email, user.fname,
-            user.lname, user.id);
+            "{\"username\": \"%s\", \"email\": \"%s\", "
+            "\"fname\": \"%s\", \"lname\": \"%s\", "
+            "\"id\": \"%d\"}",
+            user.username, user.email,
+            user.fname, user.lname,
+            user.id);
     return str;
 }
 
