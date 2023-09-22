@@ -91,7 +91,7 @@ char* create_api_request(char* http_request){
     char parameters[4096] = "";
     int parameters_len = 0;
 
-    sscanf(http_request, "%7s /api/%[a-zA-Z]31s", http_cmd, obj);
+    sscanf(http_request, "%7s /api/%[a-zA-Z+]31s", http_cmd, obj);
 
     //Choose API command based on HTTP command
     char* api_cmd = NULL;

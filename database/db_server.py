@@ -20,7 +20,7 @@ def request_bytes_to_dict(request : bytes):
     print(request_dict, file = fp)
     return request_dict
 
-def handle_request(db : Database, request_dict : dict) -> DatabaseObject | None | int:
+def handle_request(db : Database, request_dict : dict) -> DatabaseObject | DatabaseObjectList | None:
     """Handles generic request from client"""
     if(request_dict["cmd"] == "create"): 
         request_dict.pop("cmd")
@@ -45,7 +45,7 @@ def handle_request(db : Database, request_dict : dict) -> DatabaseObject | None 
         print("WARNING: Invalid command: " + request_dict["cmd"])
         return None
 
-def send_response(conn : socket.socket, response_obj : DatabaseObject | None | int | DatabaseObjectList):
+def send_response(conn : socket.socket, response_obj : DatabaseObject | DatabaseObjectList | None | tuple[DatabaseObject, DatabaseObject]):
         #Format: "<Response_Length>\n<Response>"
         response_str = str(response_obj)
         length = len(response_str)
@@ -75,6 +75,9 @@ def main():
                 request_dict = request_bytes_to_dict(api_request)
                 if("cmd" in request_dict and "obj" in request_dict):
                     response_object = handle_request(db, request_dict)
+                    if(type(response_object) == tuple):
+                        response_object[0].__dict__.update(response_object[1].__dict__)
+                        response_object = response_object[0].__dict__
                 else:
                     response_object = None
                     print("Warning: Invalid request: " + str(request_dict), file = fp)

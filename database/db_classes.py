@@ -225,7 +225,7 @@ class Database:
         """Disconnect from the database."""
         self.session.close()
 
-    def insert(self, obj : DatabaseObject):
+    def insert(self, obj : DatabaseObject) -> DatabaseObject | None:
         """Add an object to the database."""
 
         #If object is a Credentials, salt and hash the password
@@ -277,14 +277,7 @@ class Database:
                 return None
         return obj
 
-    def queryForDict(self, request_dict : dict) -> DatabaseObjectList | DatabaseObject | None:
-        if("obj" not in request_dict or 
-           request_dict["obj"] not in globals() or
-           globals()[request_dict["obj"]] not in dbObjectsTypes):
-            print("WARNING: Failed to query for dict:" + str(request_dict))
-            return None
-        
-        #Special case for Credentials
+    def verifyCredentials(self, request_dict : dict) -> Credentials | None:
         if(request_dict["obj"] == "Credentials"):
             if("user_id" not in request_dict or "pword" not in request_dict):
                 print("WARNING: Failed to query for dict:" + str(request_dict))
@@ -305,10 +298,75 @@ class Database:
             if(sha256((request_dict["pword"] + creds.salt).encode()).hexdigest() != creds.pword):
                 print("WARNING: Incorrect password for user_id: " + request_dict["user_id"])
                 return None
-            return creds\
+            return creds
 
-        obj_type = globals()[request_dict["obj"]]
+    def joinedQueryForDict(self, request_dict : dict) -> tuple[DatabaseObject, DatabaseObject] | DatabaseObjectList | None:
+        objs = request_dict["obj"].split("+")
+        if(len(objs) != 2):
+            print("WARNING: Failed to query for dict:" + str(request_dict))
+            return None
+        obj1, obj2 = objs[0], objs[1]
+
+        if(obj1 not in globals() or
+           obj2 not in globals() or
+           globals()[obj1] not in dbObjectsTypes or
+           globals()[obj2] not in dbObjectsTypes):
+            print("WARNING: Failed to query for dict:" + str(request_dict))
+            return None
+
+        obj1 = globals()[obj1]
+        obj2 = globals()[obj2]
+        if(frozenset([obj1, obj2]) not in joinedTables):
+            print("WARNING: Failed to query for dict:" + str(request_dict))
+            return None
+        
+        join_condition = joinedTables[frozenset([obj1, obj2])]
+        command = f'SELECT * FROM {obj1.__name__} JOIN {obj2.__name__} ON {join_condition}'
+        
         request_dict.pop("obj")
+        values = []
+        if(len(request_dict) > 0):
+            command += " WHERE "
+            for key, value in request_dict.items():
+                command += key + " = ? AND "
+                values.append(value)
+            command = command.removesuffix(" AND ")
+        result = self.execute(command, *values)
+        rows = result.fetch_all()
+        objDictList = []
+        for row in rows:
+            objDict = {}
+            for i in range(len(row._fields)):
+                label = result.columns[i].column_label
+                objDict[label] = str(row[i])
+            objDictList.append(objDict)
+            
+        if(len(rows) == 0): return None
+        if(len(objDictList) == 1): return (obj1.fromDict(objDictList[0]), obj2.fromDict(objDictList[0]))
+        #Create a list of objects from the list of dicts
+        objList = []
+        for objDict in objDictList:
+            objList.append(obj1.fromDict(objDictList[0]), obj2.fromDict(objDictList[0]))
+        return DatabaseObjectList(tuple(obj1, obj2), objList)
+
+    def queryForDict(self, request_dict : dict) -> tuple[DatabaseObject, DatabaseObject] | DatabaseObjectList | DatabaseObject | None:
+        if("obj" not in request_dict):
+            print("WARNING: Failed to query for dict:" + str(request_dict))
+            return None
+
+        #Special case for Credentials
+        if(request_dict["obj"] == "Credentials"): return self.verifyCredentials(request_dict)
+
+        #Special case for JOIN-ed tables
+        if("+" in request_dict["obj"]): return self.joinedQueryForDict(request_dict)
+        
+
+        if(request_dict["obj"] not in globals() or
+           globals()[request_dict["obj"]] not in dbObjectsTypes):
+            print("WARNING: Failed to query for dict:" + str(request_dict))
+            return None
+        
+        obj_type = globals()[request_dict.pop("obj")]
 
         command = "SELECT * FROM " + obj_type.__name__
         values = []
@@ -339,7 +397,10 @@ class Database:
         return DatabaseObjectList(obj_type, objList)
 
 dbObjectsTypes = [User, Channel, Membership, DirectMessage, GroupMessage, Invitation, Credentials]
-
+#JOIN-ed tables and their join conditions
+joinedTables = {
+    frozenset([Membership, User]): "User.id = Membership.user_id"
+}
 def databaseObjectFromDict(obj_dict : dict) -> DatabaseObject | None:
     if("obj" not in obj_dict or
     obj_dict["obj"] not in globals() or
