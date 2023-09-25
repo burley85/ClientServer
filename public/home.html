@@ -47,7 +47,8 @@
         }
         async function load(){
             user = await getUser();
-            if(user != null) getChannels(user);
+            if(user == null) window.location.href = "login";
+            getChannels(user);
         }
     </script>
     <body onload = "load()">

@@ -31,10 +31,28 @@
                 console.error("ERROR:", error);
             }
         }
+        async function getUser(){
+            try{
+                //Get User Object from server
+                let userRequest = new Request("api/User", {
+                    method: "GET"
+                });
+                response = await fetch(userRequest);
+                user = await response.json();
+                if(user != null) {
+                    document.ChannelCreation.disabled = false;
+                    return user;
+                }
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            window.location.href = "login";
+            return null;
+        }
     </script>
-    <body>
+    <body onload="getUser()">
         <h1>Create Channel</h1>
-        <form name="ChannelCreation" action="api/Channel" method="POST" onsubmit="createChannel()">
+        <form name="ChannelCreation" action="api/Channel" method="POST" onsubmit="createChannel()" disabled>
             <label for="channel_name">Channel Name:</label>
             <input type="text" id="channel_name" name="channel_name" required><br>
             

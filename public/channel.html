@@ -14,6 +14,21 @@
             }
             return null;
         }
+        async function getMembership(user){
+            try{
+                channel_id = parseInt(location.search.split('channel_id=')[1]);
+
+                membershipRequest = new Request("api/Membership?channel_id=" + channel_id + "&user_id=" + user.id, {
+                    method: "GET"
+                });
+                response = await fetch(membershipRequest);
+                //Check if response can be parsed
+                return await response.json();
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            return null;
+        }
         async function getChannel(user){
             try{
                 //Get Channel Object from server
@@ -44,12 +59,22 @@
             return null;
         }
         async function load(){
+            user = await getUser(); 
+            if(user == null) return;
+
+            //Make sure the user is a member of the channel
+            membership = await getMembership(user);
+            console.log(membership);
+            if(membership == null){
+                document.getElementById("Heading").innerHTML = "You are not a member of this channel";
+                return;
+            }
+
             channel = await getChannel();
             if(channel == null) return;
             document.getElementById("Heading").innerHTML = channel.channel_name;
+            document.getElementById("message").disabled = false;
 
-            user = await getUser(); 
-            if(user == null) return;
 
             messages = await getMessages(channel);
             if(messages == null) return;
@@ -96,7 +121,7 @@
         </div>
         <form method="post" name="Message" action="api/GroupMessage">
             <label for="message">Message:</label>
-            <input type="text" id="message" name="message_text" required><br>
+            <input type="text" id="message" name="message_text" required disabled><br>
             <input type="submit" onclick="return submitMessage()">
         </form>
     </body>

@@ -126,12 +126,13 @@ char* create_api_request(char* http_request){
     }
         
     //If request is for a User and no parameters were specified, add user_id parameter, based on session token
+    //If no session token is found, return NULL to indicate that the request is invalid
     if(!strcmp(obj, "User") && parameters_len == 0){
         User* user = get_session(http_request);
-        if(user != NULL) {
-            sprintf(parameters + parameters_len, "&id=%d", user->id);
-            parameters_len = strlen(parameters);
-        }
+        if(user == NULL) return NULL;
+        sprintf(parameters + parameters_len, "&id=%d", user->id);
+        parameters_len = strlen(parameters);
+        
     }
 
     int api_request_len = strlen("cmd=") + strlen(api_cmd) + strlen("&obj=") + strlen(obj) + parameters_len;
@@ -144,6 +145,11 @@ char* create_api_request(char* http_request){
 //Forward HTTP request to API server and send API response to client
 void handle_api_get_request(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){    
     char* api_request = create_api_request(request);
+
+    if(api_request == NULL){
+        send_400(client_socket_desc);
+        return;
+    }
 
     print_debug("Sending API request: %s", api_request);
     if (!send_all(API_socket_desc, api_request, strlen(api_request), 0)){
@@ -270,46 +276,6 @@ char* create_session(User *user){
     }
     if(i == max_sessions) print_error("Session map is full");
     return SessionMap[i].token;
-}
-
-//Send 302 Found if user was logged in successfully
-//Send 400 Bad Request if login failed
-void handle_login_request2(SOCKET API_socket_desc, SOCKET client_socket_desc, char* request){
-    char *http_request_body = strstr(request, "\r\n\r\n");
-    if(http_request_body == NULL){
-        print_error("Could not find request body");
-        send_400(client_socket_desc);
-        return;
-    }
-
-    char api_request[128] = "";
-    sprintf(api_request, "cmd=read&obj=User&%s", http_request_body + 4);
-    if(!send_all(API_socket_desc, api_request, strlen(api_request), 0)){
-        print_error("Failed to send API request");
-        send_500(client_socket_desc);
-        return;
-    }
-
-    char* api_response = API_recv(API_socket_desc);
-
-    if(api_response == NULL){
-        send_500(client_socket_desc);
-        return;
-    }
-
-    print_debug("Received API response: %s\n", api_response);
-
-    User* u = (User*) strToDatabaseObject(api_response);
-
-    if(u == NULL){
-        print_warning("Invalid username or password");
-        send_page(client_socket_desc, "login.html", "text/html", "401 Unauthorized");
-    }
-    else{
-        char* token = create_session(u);
-        send_302(client_socket_desc, "home.html", token);
-    }
-    free(api_response);
 }
 
 //Send 302 Found if user was logged in successfully

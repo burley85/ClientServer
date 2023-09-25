@@ -67,23 +67,26 @@ def main():
         with conn:
             print(f"Connected by {addr}")
             while True:
-                api_request = conn.recv(1048576)
-                if not api_request:
-                    break
-                print("Received request: " + api_request.decode('utf-8'), file = fp)
-                
-                request_dict = request_bytes_to_dict(api_request)
-                if("cmd" in request_dict and "obj" in request_dict):
-                    response_object = handle_request(db, request_dict)
-                    if(type(response_object) == tuple):
-                        response_object[0].__dict__.update(response_object[1].__dict__)
-                        response_object = response_object[0].__dict__
-                else:
-                    response_object = None
-                    print("Warning: Invalid request: " + str(request_dict), file = fp)
+                try:
+                    api_request = conn.recv(1048576)
+                    if not api_request:
+                        break
+                    print("Received request: " + api_request.decode('utf-8'), file = fp)
+                    
+                    request_dict = request_bytes_to_dict(api_request)
+                    if("cmd" in request_dict and "obj" in request_dict):
+                        response_object = handle_request(db, request_dict)
+                        if(type(response_object) == tuple):
+                            response_object[0].__dict__.update(response_object[1].__dict__)
+                            response_object = response_object[0].__dict__
+                    else:
+                        response_object = None
+                        print("Warning: Invalid request: " + str(request_dict), file = fp)
 
-                print("Sending response: " + str(response_object))
-                send_response(conn, response_object)
+                    print("Sending response: " + str(response_object))
+                    send_response(conn, response_object)
+                except Exception as e:
+                    traceback.print_exception(type(e), e, e.__traceback__)
 
 if(__name__ == "__main__"):
     #Catch any exceptions before exiting
