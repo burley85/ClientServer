@@ -355,7 +355,7 @@ class Database:
             return None
 
         #Special case for Credentials
-        if(request_dict["obj"] == "Credentials"): return self.verifyCredentials(request_dict)
+        if(request_dict["obj"] == "Credentials" and "salt" not in request_dict): return self.verifyCredentials(request_dict)
 
         #Special case for JOIN-ed tables
         if("+" in request_dict["obj"]): return self.joinedQueryForDict(request_dict)
