@@ -1,68 +1,190 @@
 <html>
-    <script>
-        async function getUser(){
-            try{
-            //Get User Object from server
-                let userRequest = new Request("api/User", {
-                    method: "GET"
-                });
-                response = await fetch(userRequest);
-                const user = await response.json();
-                document.getElementById("Heading").innerHTML = "Hello, " + user.fname;
-                return user;
-            } catch (error) {
-                console.error("ERROR:", error);
-            }
-            return null;
-        }
-        async function getChannels(user){
-            try{
-                //Get Channels from server
-                let membershipRequest = new Request("api/Membership?user_id=" + user.id, {
-                    method: "GET"
-                });
-                response = await fetch(membershipRequest);
-                memberships = await response.json();
-                //If memberships has a list of memberships
-                if(memberships.list != null) memberships = memberships.list;
-                else memberships = [memberships];
-                console.log(memberships);
-                for(let i = 0; i < memberships.length; i++){
-                    let membership = memberships[i];
-                    let li = document.createElement("li");
-                    let a = document.createElement("a");
-                    a.href = "channel?channel_id=" + membership.channel_id;
-                    li.appendChild(a);
-                    document.getElementById("channelList").appendChild(li);
-                    channelRequest = new Request("api/Channel?id=" + membership.channel_id, {
+    <head>
+        <title>Home</title>
+        <script>
+            async function getUser(){
+                try{
+                //Get User Object from server
+                    let userRequest = new Request("api/User", {
                         method: "GET"
                     });
-                    response = await fetch(channelRequest);
-                    channel = await response.json();
-                    a.innerHTML = channel.channel_name;
+                    response = await fetch(userRequest);
+                    const user = await response.json();
+                    document.getElementById("Heading").innerHTML = "Hello, " + user.fname;
+                    return user;
+                } catch (error) {
+                    console.error("ERROR:", error);
                 }
-            } catch (error) {
-                console.error("ERROR:", error);
+                return null;
             }
+            async function getChannels(user){
+                try{
+                    //Get Channels from server
+                    let membershipRequest = new Request("api/Membership?user_id=" + user.id, {
+                        method: "GET"
+                    });
+                    response = await fetch(membershipRequest);
+                    memberships = await response.json();
+                    //If memberships has a list of memberships
+                    if(memberships.list != null) memberships = memberships.list;
+                    else memberships = [memberships];
+                    console.log(memberships);
+                    channels = [];
+                    for(let i = 0; i < memberships.length; i++){
+                        let membership = memberships[i];
+                        channelRequest = new Request("api/Channel?id=" + membership.channel_id, {
+                            method: "GET"
+                        });
+                        response = await fetch(channelRequest);
+                        channel = await response.json();
+                        channels.push(channel);
+                    }
+                } catch (error) {
+                    console.error("ERROR:", error);
+                }
+                return channels;
+            }
+            async function getInvitations(user){
+                try{
+                    let invitationRequest = new Request("api/Invitation?user_id=" + user.id, {
+                        method: "GET"
+                    });
+                    response = await fetch(invitationRequest);
+                    invitations = await response.json();
+                } catch (error) {
+                    console.error("ERROR:", error);
+                }
+            }
+
+            function updateTab(event){
+                //Get the current channel id
+                target = event.target;
+                queryParameters = target.href.split("?")[1];
+                queryParameters = queryParameters.split("&");
+                channel_id = null;
+                for(let i = 0; i < queryParameters.length; i++){
+                    parameter = queryParameters[i];
+                    if(parameter.split("=")[0] == "channel_id"){
+                        channel_id = parameter.split("=")[1];
+                    }
+                }
+                if(channel_id == null) return;
+                console.log(channel_id);
+                
+                //Darken the selected tab
+                channelList = document.getElementById("channel_list");
+                for(let i = 0; i < channelList.children.length; i++){
+                    child = channelList.children[i];
+                    if(child.children[0].href.split("?")[1] == queryParameters){
+                        child.style.backgroundColor = "#555";
+                    } else {
+                        child.style.backgroundColor = "#999";
+                    }
+                }
+
+            }
+
+            async function load(){
+                user = await getUser();
+                if(user == null) window.location.href = "login";
+                channels = await getChannels(user);
+                //List channels in the sidebar
+                console.log(channels);
+                channelList = document.getElementById("channel_list");
+                for(let j = 0; j < 20; j++){
+                for(let i = 0; i < channels.length; i++){
+                    channel = channels[i];
+                    a = document.createElement("a");
+                    li = document.createElement("li");
+                    a.href = "channel?channel_id=" + channel.id;
+                    a.innerHTML = channel.channel_name;
+                    a.target = "channel_frame";
+                    //Set anchor to update tab when clicked
+                    a.onclick = updateTab;
+                    li.appendChild(a);
+                    channelList.appendChild(li);
+                }
+            }
+                //getInvitations(user);
+            }
+
+
+        </script>
+        <style>
+        body {
+            margin: 0;
+            display: flex;
+            height: 100vh;
         }
-        async function load(){
-            user = await getUser();
-            if(user == null) window.location.href = "login";
-            getChannels(user);
+
+        .sidebar {
+            width: 20%;
+            max-width: 200px;
+            min-width: 150px;
+            height: 100vh;
+            background-color: #999;
+            color: #000;
+            padding-top: 20px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            overflow-y: auto;
+            text-align: center;
         }
-    </script>
-    <body onload = "load()">
-        <h1 id = "Heading"></h1>
-        <h2>Channels</h2>
-        <ul id = "channelList">
-        </ul>
-        <h2>Direct Messages</h2>
-        <ul id = "DMList">
-        </ul>
-        <a href="createChannel">Create Channel</a>
-        <a href="createDM">Direct Message</a>
-        <form id="logout-form" method="post" action="logout">
-            <button type="submit">Logout</button>
-        </form>
+
+        .sidebar ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li{
+            flex: 1;
+            padding: 10px 10px;
+        }
+
+        .sidebar a {
+            display: block;
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .sidebar a:hover {
+            background-color: #555;
+            color: white;
+        }
+
+        .sidebar a:active {
+            background-color: #777;
+            color: white;
+        }
+
+        .channel_frame_container {
+            flex: 1;
+            padding: 20px;
+            margin-left: 200px;
+            box-sizing: border-box;
+            min-width: 700px;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: hide;
+        }
+        </style>
+    </head>
+    <body onload="load()">
+        <nav class="sidebar">
+            <h1 id="Heading"></h1>
+            <h2>Channels</h2>
+            <ul id="channel_list">
+            </ul>
+        </nav>
+        <a onclick="updateTab()">asd</a>
+        <div class="channel_frame_container">
+            <iframe name="channel_frame"></iframe>
+        </div>
     </body>
 </html>

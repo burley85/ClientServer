@@ -87,6 +87,7 @@
 
                 let div = document.createElement("div");
                 div.innerHTML = message.message_text;
+                div.style.wordWrap = "break-word";
                 document.getElementById("messages").appendChild(div);
             }            
         }
