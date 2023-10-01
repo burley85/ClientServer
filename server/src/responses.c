@@ -8,11 +8,24 @@ int send_all(SOCKET client_socket_desc, const char* buffer, int buffer_len, int 
     int bytes_sent = 0;
     while (bytes_sent < buffer_len) {
         int rval = send(client_socket_desc, buffer + bytes_sent, buffer_len - bytes_sent, flags);
-        bytes_sent += rval;
         if (rval == SOCKET_ERROR) {
             print_error("send() failed");
-            return 0;
+            int attempts = 1;
+            while (attempts++ < 5) {
+                print_debug("Attempting to resend...");
+                rval = send(client_socket_desc, buffer + bytes_sent, buffer_len - bytes_sent, flags);
+                if (rval != SOCKET_ERROR) {
+                    print_debug("Resend successful");
+                    break;
+                }
+            }
+            if(rval == SOCKET_ERROR){
+                print_error("All resend attempts failed");
+                return 0;
+            }
         }
+
+        bytes_sent += rval;
     }
     return 1;
 }
@@ -133,7 +146,6 @@ void send_400(SOCKET client_socket_desc) {
     const char* error_msg =
         "HTTP/1.1 400 Bad Request\r\n"
         "Content-Length: 0\r\n"
-        "Connection: close\r\n"
         "\r\n";
     print_debug("Sending header: %s", error_msg);
     if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
@@ -145,7 +157,6 @@ void send_404(SOCKET client_socket_desc) {
     const char* error_msg =
         "HTTP/1.1 404 Not Found\r\n"
         "Content-Length: 0\r\n"
-        "Connection: close\r\n"
         "\r\n";
     print_debug("Sending header: %s", error_msg);
     if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
@@ -157,7 +168,6 @@ void send_406(SOCKET client_socket_desc) {
     const char* error_msg =
         "HTTP/1.1 406 Not Acceptable\r\n"
         "Content-Length: 0\r\n"
-        "Connection: close\r\n"
         "\r\n";
     print_debug("Sending header: %s", error_msg);
     if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
@@ -169,7 +179,6 @@ void send_500(SOCKET client_socket_desc){
     const char* error_msg =
         "HTTP/1.1 500 Internal Server Error\r\n"
         "Content-Length: 0\r\n"
-        "Connection: close\r\n"
         "\r\n";
     print_debug("Sending header: %s", error_msg);
     if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
@@ -181,7 +190,6 @@ void send_501(SOCKET client_socket_desc) {
     const char* error_msg =
         "HTTP/1.1 501 Not Implemented\r\n"
         "Content-Length: 0\r\n"
-        "Connection: close\r\n"
         "\r\n";
     if (!send_all(client_socket_desc, error_msg, strlen(error_msg), 0)) {
         print_error("Failed to send 501 Not Implemented");
