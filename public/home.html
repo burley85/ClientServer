@@ -25,7 +25,6 @@
                     });
                     response = await fetch(membershipRequest);
                     memberships = await response.json();
-                    //If memberships has a list of memberships
                     if(memberships.list != null) memberships = memberships.list;
                     else memberships = [memberships];
                     console.log(memberships);
@@ -39,21 +38,26 @@
                         channel = await response.json();
                         channels.push(channel);
                     }
+                    return channels;
                 } catch (error) {
                     console.error("ERROR:", error);
                 }
-                return channels;
+                return null;
             }
             async function getInvitations(user){
                 try{
-                    let invitationRequest = new Request("api/Invitation?user_id=" + user.id, {
+                    let invitationRequest = new Request("api/Invitation?receiver_id=" + user.id, {
                         method: "GET"
                     });
                     response = await fetch(invitationRequest);
                     invitations = await response.json();
+                    if(invitations.list != null) invitations = invitations.list;
+                    else invitations = [invitations];
+                    return invitations;
                 } catch (error) {
                     console.error("ERROR:", error);
                 }
+                return null;
             }
 
             function updateTab(event){
@@ -87,11 +91,11 @@
             async function load(){
                 user = await getUser();
                 if(user == null) window.location.href = "login";
-                channels = await getChannels(user);
                 //List channels in the sidebar
+                channels = await getChannels(user);
                 console.log(channels);
                 channelList = document.getElementById("channel_list");
-                for(let i = 0; i < channels.length; i++){
+                for(i = 0; channels != null && i < channels.length; i++){
                     channel = channels[i];
                     a = document.createElement("a");
                     li = document.createElement("li");
@@ -102,7 +106,29 @@
                     li.appendChild(a);
                     channelList.appendChild(li);
                 }
-                //getInvitations(user);
+
+                //List invitations in the sidebar
+                invitations = await getInvitations(user);
+                console.log(invitations);
+                invitationList = document.getElementById("invitation_list");
+                for(i = 0; i < invitations.length; i++){
+                    invitation = invitations[i];
+                    a = document.createElement("a");
+                    li = document.createElement("li");
+                    a.href = "join?channel_id=" + invitation.channel_id;
+
+                    let channelRequest = new Request("api/Channel?id=" + invitation.channel_id, {
+                        method: "GET"
+                    });
+                    response = await fetch(channelRequest);
+                    channel = await response.json();
+
+                    if(channel!=null) a.innerHTML = channel.channel_name;
+                    a.target = "channel_frame";
+                    a.onclick = updateTab;
+                    li.appendChild(a);
+                    invitationList.appendChild(li);
+                }
             }
 
 
@@ -174,9 +200,15 @@
     </head>
     <body onload="load()">
         <nav class="sidebar">
+            <form id="logout" method="post" action="logout">
+                <input type="submit" value="Sign out">
+            </form>
             <h1 id="Heading"></h1>
             <h2>Channels</h2>
             <ul id="channel_list">
+            </ul>
+            <h2>Invitations</h2>
+            <ul id="invitation_list">
             </ul>
         </nav>
         <a onclick="updateTab()">asd</a>

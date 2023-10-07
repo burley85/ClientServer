@@ -1,6 +1,7 @@
 <html>
     <script>
         user = null;
+        members = null;
         async function getUser(){
             try{
             //Get User Object from server
@@ -114,6 +115,33 @@
                 console.error("ERROR:", error);
             }
         }
+        async function submitInvitation(){
+            event.preventDefault();
+            try{
+                //Get the receiver_id from the username
+                userRequest = new Request("api/User?username=" + document.getElementById("receiver_username").value, {
+                    method: "GET"
+                });
+                response = await fetch(userRequest);
+                receiver = await response.json();
+                if(receiver == null){
+                    alert("User not found");
+                    return;
+                }
+                sender_id = user.id;
+                receiver_id = receiver.id;
+                channel_id = parseInt(location.search.split('channel_id=')[1]);
+                invitationRequest = new Request("api/Invitation", {
+                    method: "POST",
+                    body: "sender_id=" + sender_id + "&receiver_id=" + receiver_id + "&channel_id=" + channel_id
+                });
+                response = await fetch(invitationRequest);
+                alert("Invitation sent");
+            }
+            catch(error){
+                console.error("ERROR:", error);
+            }
+        }
     </script>
     <body onload = "load()">
         <h1 id = "Heading"></h1>
@@ -125,5 +153,9 @@
             <input type="text" id="message" name="message_text" required disabled><br>
             <input type="submit" onclick="return submitMessage()">
         </form>
+        <form method="post" name="Invitation" action="api/Invitation">
+            <label for="receiver_username">Invite:</label>
+            <input type="text" id="receiver_username" name="receiver_username" required><br>
+            <input type="submit" onclick="return submitInvitation()">
     </body>
 </html>
