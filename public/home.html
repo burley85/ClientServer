@@ -91,7 +91,6 @@
                 //List channels in the sidebar
                 console.log(channels);
                 channelList = document.getElementById("channel_list");
-                for(let j = 0; j < 20; j++){
                 for(let i = 0; i < channels.length; i++){
                     channel = channels[i];
                     a = document.createElement("a");
@@ -99,12 +98,10 @@
                     a.href = "channel?channel_id=" + channel.id;
                     a.innerHTML = channel.channel_name;
                     a.target = "channel_frame";
-                    //Set anchor to update tab when clicked
                     a.onclick = updateTab;
                     li.appendChild(a);
                     channelList.appendChild(li);
                 }
-            }
                 //getInvitations(user);
             }
 
