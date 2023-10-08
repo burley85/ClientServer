@@ -1,0 +1,89 @@
+<html>
+    <script>
+        user = null;
+        members = null;
+        async function getUser(){
+            try{
+            //Get User Object from server
+                let userRequest = new Request("api/User", {
+                    method: "GET"
+                });
+                response = await fetch(userRequest);
+                return await response.json();
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            return null;
+        }
+        async function getMembership(user){
+            try{
+                channel_id = parseInt(location.search.split('channel_id=')[1]);
+
+                membershipRequest = new Request("api/Membership?channel_id=" + channel_id + "&user_id=" + user.id, {
+                    method: "GET"
+                });
+                response = await fetch(membershipRequest);
+                return await response.json();
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            return null;
+        }
+        async function getChannel(user){
+            try{
+                //Get Channel Object from server
+                channel_id = parseInt(location.search.split('channel_id=')[1]);
+                let channelRequest = new Request("api/Channel?id=" + channel_id, {
+                    method: "GET"
+                });
+                response = await fetch(channelRequest);
+                return await response.json();                
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            return null;
+        }
+        async function load(){
+            user = await getUser(); 
+            if(user == null) return;
+            
+            channel = await getChannel();
+            if(channel == null) return;
+            document.getElementById("Heading").innerHTML = "Join " + channel.channel_name + "?";
+
+            //Make sure the user is not a member of the channel
+            membership = await getMembership(user);
+            console.log(membership);
+            console.log(membership != null);
+            if(membership != null){
+                document.getElementById("Heading").innerHTML = "You are already a member of " + channel.channel_name;
+                return;
+            }
+
+            //Enable the form
+            document.getElementById("submitJoin").disabled = false;
+        }
+        async function submitMembership(){
+            event.preventDefault();
+            try{
+                //Get Channel Object from server
+                channel_id = parseInt(location.search.split('channel_id=')[1]);
+                let membershipRequest = new Request("api/Membership", {
+                    method: "POST",
+                    body: "user_id=" + user.id + "&channel_id=" + channel_id + "&perm_flags=0"
+                });
+                response = await fetch(membershipRequest);
+                return await response.json();                
+            } catch (error) {
+                console.error("ERROR:", error);
+            }
+            return null;
+        }
+    </script>
+    <body onload = "load()">
+        <h1 id = "Heading"></h1>
+        <form method="post" name="Membership" action="api/Membership">
+            <input type="submit" onclick="return submitMembership()" id="submitJoin" disabled>
+        </form>
+    </body>
+</html>

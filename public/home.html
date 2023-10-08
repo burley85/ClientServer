@@ -115,7 +115,7 @@
                     invitation = invitations[i];
                     a = document.createElement("a");
                     li = document.createElement("li");
-                    a.href = "join?channel_id=" + invitation.channel_id;
+                    a.href = "join_channel?channel_id=" + invitation.channel_id;
 
                     let channelRequest = new Request("api/Channel?id=" + invitation.channel_id, {
                         method: "GET"
